@@ -23,6 +23,7 @@ import org.mockito.Mockito;
 
 import rx.Observable;
 import rx.Observer;
+import rx.Subscriber;
 import rx.Subscription;
 import rx.observers.SafeSubscriber;
 import rx.observers.TestSubscriber;
@@ -121,7 +122,7 @@ public class SafeSubscriberTest {
     /**
      * A Observable that doesn't do the right thing on UnSubscribe/Error/etc in that it will keep sending events down the pipe regardless of what happens.
      */
-    private static class TestObservable implements Observable.OnSubscribeFunc<String> {
+    private static class TestObservable implements Observable.OnSubscribe<String> {
 
         Observer<? super String> observer = null;
 
@@ -144,10 +145,9 @@ public class SafeSubscriberTest {
         }
 
         @Override
-        public Subscription onSubscribe(final Observer<? super String> observer) {
+        public void call(final Subscriber<? super String> observer) {
             this.observer = observer;
-            return new Subscription() {
-
+            observer.add(new Subscription() {
                 @Override
                 public void unsubscribe() {
                     // going to do nothing to pretend I'm a bad Observable that keeps allowing events to be sent
@@ -158,8 +158,7 @@ public class SafeSubscriberTest {
                 public boolean isUnsubscribed() {
                     return false;
                 }
-
-            };
+            });
         }
 
     }

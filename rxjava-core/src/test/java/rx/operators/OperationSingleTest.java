@@ -70,68 +70,6 @@ public class OperationSingleTest {
     }
 
     @Test
-    public void testSingleWithPredicate() {
-        Observable<Integer> observable = Observable.from(1, 2).single(
-                new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onNext(2);
-        inOrder.verify(observer, times(1)).onCompleted();
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testSingleWithPredicateAndTooManyElements() {
-        Observable<Integer> observable = Observable.from(1, 2, 3, 4).single(
-                new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onError(
-                isA(IllegalArgumentException.class));
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testSingleWithPredicateAndEmpty() {
-        Observable<Integer> observable = Observable.from(1).single(
-                new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onError(
-                isA(IllegalArgumentException.class));
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
     public void testSingleOrDefault() {
         Observable<Integer> observable = Observable.from(1).singleOrDefault(2);
 
@@ -171,69 +109,6 @@ public class OperationSingleTest {
 
         InOrder inOrder = inOrder(observer);
         inOrder.verify(observer, times(1)).onNext(1);
-        inOrder.verify(observer, times(1)).onCompleted();
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testSingleOrDefaultWithPredicate() {
-        Observable<Integer> observable = Observable.from(1, 2).singleOrDefault(
-                4, new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onNext(2);
-        inOrder.verify(observer, times(1)).onCompleted();
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testSingleOrDefaultWithPredicateAndTooManyElements() {
-        Observable<Integer> observable = Observable.from(1, 2, 3, 4)
-                .singleOrDefault(6, new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onError(
-                isA(IllegalArgumentException.class));
-        inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    public void testSingleOrDefaultWithPredicateAndEmpty() {
-        Observable<Integer> observable = Observable.from(1).singleOrDefault(2,
-                new Func1<Integer, Boolean>() {
-
-                    @Override
-                    public Boolean call(Integer t1) {
-                        return t1 % 2 == 0;
-                    }
-                });
-
-        @SuppressWarnings("unchecked")
-        Observer<Integer> observer = (Observer<Integer>) mock(Observer.class);
-        observable.subscribe(observer);
-
-        InOrder inOrder = inOrder(observer);
-        inOrder.verify(observer, times(1)).onNext(2);
         inOrder.verify(observer, times(1)).onCompleted();
         inOrder.verifyNoMoreInteractions();
     }

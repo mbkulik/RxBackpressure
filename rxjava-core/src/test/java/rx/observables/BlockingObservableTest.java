@@ -27,13 +27,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import rx.Observable;
-import rx.Observer;
+import rx.Observable.OnSubscribe;
 import rx.Subscriber;
-import rx.Subscription;
 import rx.functions.Action1;
-import rx.functions.Func1;
 import rx.subscriptions.BooleanSubscription;
-import rx.subscriptions.Subscriptions;
 
 public class BlockingObservableTest {
 
@@ -43,80 +40,6 @@ public class BlockingObservableTest {
     @Before
     public void before() {
         MockitoAnnotations.initMocks(this);
-    }
-
-    @Test
-    public void testLast() {
-        BlockingObservable<String> obs = BlockingObservable.from(Observable.from("one", "two", "three"));
-
-        assertEquals("three", obs.last());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testLastEmptyObservable() {
-        BlockingObservable<Object> obs = BlockingObservable.from(Observable.empty());
-        obs.last();
-    }
-
-    @Test
-    public void testLastOrDefault() {
-        BlockingObservable<Integer> observable = BlockingObservable.from(Observable.from(1, 0, -1));
-        int last = observable.lastOrDefault(-100, new Func1<Integer, Boolean>() {
-            @Override
-            public Boolean call(Integer args) {
-                return args >= 0;
-            }
-        });
-        assertEquals(0, last);
-    }
-
-    @Test
-    public void testLastOrDefault1() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
-        assertEquals("three", observable.lastOrDefault("default"));
-    }
-
-    @Test
-    public void testLastOrDefault2() {
-        BlockingObservable<Object> observable = BlockingObservable.from(Observable.empty());
-        assertEquals("default", observable.lastOrDefault("default"));
-    }
-
-    @Test
-    public void testLastOrDefaultWithPredicate() {
-        BlockingObservable<Integer> observable = BlockingObservable.from(Observable.from(1, 0, -1));
-        int last = observable.lastOrDefault(0, new Func1<Integer, Boolean>() {
-            @Override
-            public Boolean call(Integer args) {
-                return args < 0;
-            }
-        });
-
-        assertEquals(-1, last);
-    }
-
-    @Test
-    public void testLastOrDefaultWrongPredicate() {
-        BlockingObservable<Integer> observable = BlockingObservable.from(Observable.from(-1, -2, -3));
-        int last = observable.lastOrDefault(0, new Func1<Integer, Boolean>() {
-            @Override
-            public Boolean call(Integer args) {
-                return args >= 0;
-            }
-        });
-        assertEquals(0, last);
-    }
-
-    @Test
-    public void testLastWithPredicate() {
-        BlockingObservable<String> obs = BlockingObservable.from(Observable.from("one", "two", "three"));
-
-        assertEquals("two", obs.last(new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String s) {
-                return s.length() == 3;
-            }
-        }));
     }
 
     public void testSingle() {
@@ -131,59 +54,15 @@ public class BlockingObservableTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testSingleDefaultPredicateMatchesMoreThanOne() {
-        BlockingObservable.from(Observable.from("one", "two")).singleOrDefault("default", new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() == 3;
-            }
-        });
-    }
-
-    @Test
-    public void testSingleDefaultPredicateMatchesNothing() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two"));
-        String result = observable.singleOrDefault("default", new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() == 4;
-            }
-        });
-        assertEquals("default", result);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
     public void testSingleDefaultWithMoreThanOne() {
         BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
         observable.singleOrDefault("default");
-    }
-
-    @Test
-    public void testSingleWithPredicateDefault() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "four"));
-        assertEquals("four", observable.single(new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String s) {
-                return s.length() == 4;
-            }
-        }));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testSingleWrong() {
         BlockingObservable<Integer> observable = BlockingObservable.from(Observable.from(1, 2));
         observable.single();
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSingleWrongPredicate() {
-        BlockingObservable<Integer> observable = BlockingObservable.from(Observable.from(-1));
-        observable.single(new Func1<Integer, Boolean>() {
-            @Override
-            public Boolean call(Integer args) {
-                return args > 0;
-            }
-        });
     }
 
     @Test
@@ -260,13 +139,12 @@ public class BlockingObservableTest {
 
     @Test(expected = TestException.class)
     public void testToIterableWithException() {
-        BlockingObservable<String> obs = BlockingObservable.from(Observable.create(new Observable.OnSubscribeFunc<String>() {
+        BlockingObservable<String> obs = BlockingObservable.from(Observable.create(new OnSubscribe<String>() {
 
             @Override
-            public Subscription onSubscribe(Observer<? super String> observer) {
+            public void call(final Subscriber<? super String> observer) {
                 observer.onNext("one");
                 observer.onError(new TestException());
-                return Subscriptions.empty();
             }
         }));
 
@@ -283,11 +161,10 @@ public class BlockingObservableTest {
     @Test
     public void testForEachWithError() {
         try {
-            BlockingObservable.from(Observable.create(new Observable.OnSubscribeFunc<String>() {
+            BlockingObservable.from(Observable.create(new OnSubscribe<String>() {
 
                 @Override
-                public Subscription onSubscribe(final Observer<? super String> observer) {
-                    final BooleanSubscription subscription = new BooleanSubscription();
+                public void call(final Subscriber<? super String> observer) {
                     new Thread(new Runnable() {
 
                         @Override
@@ -298,7 +175,6 @@ public class BlockingObservableTest {
                             observer.onCompleted();
                         }
                     }).start();
-                    return subscription;
                 }
             })).forEach(new Action1<String>() {
 
@@ -325,29 +201,6 @@ public class BlockingObservableTest {
     }
 
     @Test
-    public void testFirstWithPredicate() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
-        String first = observable.first(new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() > 3;
-            }
-        });
-        assertEquals("three", first);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testFirstWithPredicateAndEmpty() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
-        observable.first(new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() > 5;
-            }
-        });
-    }
-
-    @Test
     public void testFirstOrDefault() {
         BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
         assertEquals("one", observable.firstOrDefault("default"));
@@ -357,30 +210,6 @@ public class BlockingObservableTest {
     public void testFirstOrDefaultWithEmpty() {
         BlockingObservable<String> observable = BlockingObservable.from(Observable.<String> empty());
         assertEquals("default", observable.firstOrDefault("default"));
-    }
-
-    @Test
-    public void testFirstOrDefaultWithPredicate() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
-        String first = observable.firstOrDefault("default", new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() > 3;
-            }
-        });
-        assertEquals("three", first);
-    }
-
-    @Test
-    public void testFirstOrDefaultWithPredicateAndEmpty() {
-        BlockingObservable<String> observable = BlockingObservable.from(Observable.from("one", "two", "three"));
-        String first = observable.firstOrDefault("default", new Func1<String, Boolean>() {
-            @Override
-            public Boolean call(String args) {
-                return args.length() > 5;
-            }
-        });
-        assertEquals("default", first);
     }
 
     private static class TestException extends RuntimeException {

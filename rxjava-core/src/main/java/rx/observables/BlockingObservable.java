@@ -17,19 +17,13 @@ package rx.observables;
 
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Action1;
-import rx.functions.Func1;
 import rx.observers.SafeSubscriber;
-import rx.operators.OperationLatest;
-import rx.operators.OperationMostRecent;
-import rx.operators.OperationNext;
-import rx.operators.OperationToFuture;
 import rx.operators.OperationToIterator;
 
 /**
@@ -174,23 +168,9 @@ public class BlockingObservable<T> {
     public T first() {
         return from(o.first()).single();
     }
-
-    /**
-     * Returns the first item emitted by a specified {@link Observable} that
-     * matches a predicate, or <code>IllegalArgumentException</code> if no such
-     * item is emitted.
-     * 
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the first item emitted by the {@link Observable} that matches the
-     *         predicate
-     * @throws IllegalArgumentException
-     *             if no such items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#first-and-firstordefault">RxJava Wiki: first()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/hh229739.aspx">MSDN: Observable.First</a>
-     */
-    public T first(Func1<? super T, Boolean> predicate) {
-        return from(o.first(predicate)).single();
+    
+    public T last() {
+        return from(o.last()).single();
     }
 
     /**
@@ -209,145 +189,6 @@ public class BlockingObservable<T> {
     }
 
     /**
-     * Returns the first item emitted by a specified {@link Observable} that
-     * matches a predicate, or a default value if no such items are emitted.
-     * 
-     * @param defaultValue
-     *            a default value to return if the {@link Observable} emits no matching items
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the first item emitted by the {@link Observable} that matches the
-     *         predicate, or the default value if no matching items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#first-and-firstordefault">RxJava Wiki: firstOrDefault()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/hh229759.aspx">MSDN: Observable.FirstOrDefault</a>
-     */
-    public T firstOrDefault(T defaultValue, Func1<? super T, Boolean> predicate) {
-        return from(o.filter(predicate)).firstOrDefault(defaultValue);
-    }
-
-    /**
-     * Returns the last item emitted by a specified {@link Observable}, or
-     * throws <code>IllegalArgumentException</code> if it emits no items.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.last.png">
-     * 
-     * @return the last item emitted by the source {@link Observable}
-     * @throws IllegalArgumentException
-     *             if source contains no elements
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#last-and-lastordefault">RxJava Wiki: last()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.last.aspx">MSDN: Observable.Last</a>
-     */
-    public T last() {
-        return from(o.last()).single();
-    }
-
-    /**
-     * Returns the last item emitted by a specified {@link Observable} that
-     * matches a predicate, or throws <code>IllegalArgumentException</code> if
-     * it emits no such items.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.last.p.png">
-     * 
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the last item emitted by the {@link Observable} that matches the
-     *         predicate
-     * @throws IllegalArgumentException
-     *             if no such items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#last-and-lastordefault">RxJava Wiki: last()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.last.aspx">MSDN: Observable.Last</a>
-     */
-    public T last(final Func1<? super T, Boolean> predicate) {
-        return from(o.last(predicate)).single();
-    }
-
-    /**
-     * Returns the last item emitted by a specified {@link Observable}, or a
-     * default value if no items are emitted.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.lastOrDefault.png">
-     * 
-     * @param defaultValue
-     *            a default value to return if the {@link Observable} emits no items
-     * @return the last item emitted by the {@link Observable}, or the default
-     *         value if no items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#last-and-lastordefault">RxJava Wiki: lastOrDefault()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.lastordefault.aspx">MSDN: Observable.LastOrDefault</a>
-     */
-    public T lastOrDefault(T defaultValue) {
-        return from(o.takeLast(1)).singleOrDefault(defaultValue);
-    }
-
-    /**
-     * Returns the last item emitted by a specified {@link Observable} that
-     * matches a predicate, or a default value if no such items are emitted.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.lastOrDefault.p.png">
-     * 
-     * @param defaultValue
-     *            a default value to return if the {@link Observable} emits no matching items
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the last item emitted by the {@link Observable} that matches the
-     *         predicate, or the default value if no matching items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#last-and-lastordefault">RxJava Wiki: lastOrDefault()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.lastordefault.aspx">MSDN: Observable.LastOrDefault</a>
-     */
-    public T lastOrDefault(T defaultValue, Func1<? super T, Boolean> predicate) {
-        return from(o.filter(predicate)).lastOrDefault(defaultValue);
-    }
-
-    /**
-     * Returns an {@link Iterable} that always returns the item most recently
-     * emitted by an {@link Observable}.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.mostRecent.png">
-     * 
-     * @param initialValue
-     *            the initial value that will be yielded by the {@link Iterable} sequence if the {@link Observable} has not yet emitted an item
-     * @return an {@link Iterable} that on each iteration returns the item that
-     *         the {@link Observable} has most recently emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#mostrecent">RxJava wiki: mostRecent()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/hh229751.aspx">MSDN: Observable.MostRecent</a>
-     */
-    public Iterable<T> mostRecent(T initialValue) {
-        return OperationMostRecent.mostRecent(o, initialValue);
-    }
-
-    /**
-     * Returns an {@link Iterable} that blocks until the {@link Observable} emits another item, then returns that item.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.next.png">
-     * 
-     * @return an {@link Iterable} that blocks upon each iteration until the {@link Observable} emits a new item, whereupon the Iterable returns that item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#next">RxJava Wiki: next()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/hh211897.aspx">MSDN: Observable.Next</a>
-     */
-    public Iterable<T> next() {
-        return OperationNext.next(o);
-    }
-
-    /**
-     * Returns the latest item emitted by the underlying Observable, waiting if
-     * necessary for one to become available.
-     * <p>
-     * If the underlying Observable produces items faster than the
-     * <code>Iterator.next()</code> takes them, <code>onNext</code> events might
-     * be skipped, but <code>onError</code> or <code>onCompleted</code> events
-     * are not.
-     * <p>
-     * Note also that an <code>onNext()</code> directly followed by
-     * <code>onCompleted()</code> might hide the <code>onNext()</code> event.
-     * 
-     * @return the Iterable sequence
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#latest">RxJava wiki: latest()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/hh212115.aspx">MSDN: Observable.Latest</a>
-     */
-    public Iterable<T> latest() {
-        return OperationLatest.latest(o);
-    }
-
-    /**
      * If the {@link Observable} completes after emitting a single item, return
      * that item, otherwise throw an <code>IllegalArgumentException</code>.
      * <p>
@@ -359,24 +200,6 @@ public class BlockingObservable<T> {
      */
     public T single() {
         return from(o.single()).toIterable().iterator().next();
-    }
-
-    /**
-     * If the {@link Observable} completes after emitting a single item that
-     * matches a given predicate, return that item, otherwise throw an
-     * <code>IllegalArgumentException</code>.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.single.p.png">
-     * 
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the single item emitted by the source {@link Observable} that
-     *         matches the predicate
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#single-and-singleordefault">RxJava Wiki: single()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.single.aspx">MSDN: Observable.Single</a>
-     */
-    public T single(Func1<? super T, Boolean> predicate) {
-        return from(o.single(predicate)).toIterable().iterator().next();
     }
 
     /**
@@ -406,42 +229,6 @@ public class BlockingObservable<T> {
             throw new IllegalArgumentException("Sequence contains too many elements");
         }
         return result;
-    }
-
-    /**
-     * If the {@link Observable} completes after emitting a single item that
-     * matches a predicate, return that item; if it emits more than one such
-     * item, throw an <code>IllegalArgumentException</code>; if it emits no
-     * items, return a default value.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.singleOrDefault.p.png">
-     * 
-     * @param defaultValue
-     *            a default value to return if the {@link Observable} emits no matching items
-     * @param predicate
-     *            a predicate function to evaluate items emitted by the {@link Observable}
-     * @return the single item emitted by the {@link Observable} that matches
-     *         the predicate, or the default value if no such items are emitted
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#single-and-singleordefault">RxJava Wiki: singleOrDefault()</a>
-     * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.singleordefault.aspx">MSDN: Observable.SingleOrDefault</a>
-     */
-    public T singleOrDefault(T defaultValue, Func1<? super T, Boolean> predicate) {
-        return from(o.filter(predicate)).singleOrDefault(defaultValue);
-    }
-
-    /**
-     * Returns a {@link Future} representing the single value emitted by an {@link Observable}.
-     * <p>
-     * <code>toFuture()</code> throws an exception if the Observable emits more
-     * than one item. If the Observable may emit more than item, use {@link Observable#toList toList()}.toFuture()</code>.
-     * <p>
-     * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/B.toFuture.png">
-     * 
-     * @return a {@link Future} that expects a single item to be emitted by the source {@link Observable}
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Blocking-Observable-Operators#transformations-tofuture-toiterable-and-toiteratorgetiterator">RxJava Wiki: toFuture()</a>
-     */
-    public Future<T> toFuture() {
-        return OperationToFuture.toFuture(o);
     }
 
     /**

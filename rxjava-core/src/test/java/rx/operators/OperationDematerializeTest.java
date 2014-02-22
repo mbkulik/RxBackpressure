@@ -17,7 +17,6 @@ package rx.operators;
 
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
-import static rx.operators.OperationDematerialize.*;
 
 import org.junit.Test;
 
@@ -47,7 +46,7 @@ public class OperationDematerializeTest {
     public void testDematerialize2() {
         Throwable exception = new Throwable("test");
         Observable<Integer> observable = Observable.error(exception);
-        Observable<Integer> dematerialize = Observable.create(dematerialize(observable.materialize()));
+        Observable<Integer> dematerialize = observable.materialize().dematerialize();
 
         Observer<Integer> observer = mock(Observer.class);
         dematerialize.subscribe(observer);
@@ -62,7 +61,7 @@ public class OperationDematerializeTest {
     public void testDematerialize3() {
         Exception exception = new Exception("test");
         Observable<Integer> observable = Observable.error(exception);
-        Observable<Integer> dematerialize = Observable.create(dematerialize(observable.materialize()));
+        Observable<Integer> dematerialize = observable.materialize().dematerialize();
 
         Observer<Integer> observer = mock(Observer.class);
         dematerialize.subscribe(observer);

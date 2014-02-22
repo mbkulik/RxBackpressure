@@ -45,7 +45,6 @@ import rx.functions.FuncN;
 import rx.functions.Functions;
 import rx.observers.TestSubscriber;
 import rx.subjects.PublishSubject;
-import rx.subscriptions.Subscriptions;
 
 public class OperatorZipTest {
     Func2<String, String, String> concat2Strings;
@@ -670,15 +669,13 @@ public class OperatorZipTest {
         }
     }
 
-    private static class TestObservable implements Observable.OnSubscribeFunc<String> {
+    private static class TestObservable implements OnSubscribe<String> {
 
         Observer<? super String> observer;
 
         @Override
-        public Subscription onSubscribe(Observer<? super String> Observer) {
-            // just store the variable where it can be accessed so we can manually trigger it
-            this.observer = Observer;
-            return Subscriptions.empty();
+        public void call(final Subscriber<? super String> observer) {
+            this.observer = observer;
         }
 
     }
@@ -1051,7 +1048,7 @@ public class OperatorZipTest {
             }
         });
 
-        o.toBlockingObservable().last();
+        o.toBlockingObservable().single();
     }
 
     Observable<Integer> OBSERVABLE_OF_5_INTEGERS = OBSERVABLE_OF_5_INTEGERS(new AtomicInteger());

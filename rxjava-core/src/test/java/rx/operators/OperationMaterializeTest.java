@@ -16,20 +16,16 @@
 package rx.operators;
 
 import static org.junit.Assert.*;
-import static rx.operators.OperationMaterialize.*;
 
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.ExecutionException;
 
 import org.junit.Test;
 
 import rx.Notification;
 import rx.Observable;
-import rx.Observer;
+import rx.Observable.OnSubscribe;
 import rx.Subscriber;
-import rx.Subscription;
-import rx.subscriptions.Subscriptions;
 
 public class OperationMaterializeTest {
 
@@ -39,7 +35,7 @@ public class OperationMaterializeTest {
         final TestAsyncErrorObservable o1 = new TestAsyncErrorObservable("one", "two", null, "three");
 
         TestObserver Observer = new TestObserver();
-        Observable<Notification<String>> m = Observable.create(materialize(Observable.create(o1)));
+        Observable<Notification<String>> m = Observable.create(o1).materialize();
         m.subscribe(Observer);
 
         try {
@@ -64,7 +60,7 @@ public class OperationMaterializeTest {
         final TestAsyncErrorObservable o1 = new TestAsyncErrorObservable("one", "two", "three");
 
         TestObserver Observer = new TestObserver();
-        Observable<Notification<String>> m = Observable.create(materialize(Observable.create(o1)));
+        Observable<Notification<String>> m = Observable.create(o1).materialize();
         m.subscribe(Observer);
 
         try {
@@ -83,16 +79,6 @@ public class OperationMaterializeTest {
         assertEquals("three", Observer.notifications.get(2).getValue());
         assertTrue(Observer.notifications.get(2).isOnNext());
         assertTrue(Observer.notifications.get(3).isOnCompleted());
-    }
-
-    @Test
-    public void testMultipleSubscribes() throws InterruptedException, ExecutionException {
-        final TestAsyncErrorObservable o = new TestAsyncErrorObservable("one", "two", null, "three");
-
-        Observable<Notification<String>> m = Observable.create(materialize(Observable.create(o)));
-
-        assertEquals(3, m.toList().toBlockingObservable().toFuture().get().size());
-        assertEquals(3, m.toList().toBlockingObservable().toFuture().get().size());
     }
 
     private static class TestObserver extends Subscriber<Notification<String>> {
@@ -118,7 +104,7 @@ public class OperationMaterializeTest {
 
     }
 
-    private static class TestAsyncErrorObservable implements Observable.OnSubscribeFunc<String> {
+    private static class TestAsyncErrorObservable implements OnSubscribe<String> {
 
         String[] valuesToReturn;
 
@@ -129,7 +115,7 @@ public class OperationMaterializeTest {
         volatile Thread t;
 
         @Override
-        public Subscription onSubscribe(final Observer<? super String> observer) {
+        public void call(final Subscriber<? super String> observer) {
             t = new Thread(new Runnable() {
 
                 @Override
@@ -154,8 +140,6 @@ public class OperationMaterializeTest {
 
             });
             t.start();
-
-            return Subscriptions.empty();
         }
     }
 }

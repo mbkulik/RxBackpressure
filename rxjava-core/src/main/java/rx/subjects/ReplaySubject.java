@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import rx.Notification;
 import rx.Observer;
 import rx.functions.Action1;
-import rx.subjects.SubjectSubscriptionManager.SubjectObserver;
+import rx.subjects.SubjectSubscriptionManager.SubjectSubscriber;
 
 /**
  * Subject that retains all events and will replay them to an {@link Observer} that subscribes.
@@ -58,7 +58,7 @@ public final class ReplaySubject<T> extends Subject<T, T> {
         final SubjectSubscriptionManager<T> subscriptionManager = new SubjectSubscriptionManager<T>();
         final ReplayState<T> state = new ReplayState<T>(initialCapacity);
 
-        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribeFunc(
+        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribe(
                 /**
                  * This function executes at beginning of subscription.
                  * We want to replay history with the subscribing thread
@@ -66,10 +66,10 @@ public final class ReplaySubject<T> extends Subject<T, T> {
                  * 
                  * This will always run, even if Subject is in terminal state.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         // replay history for this observer using the subscribing thread
                         int lastIndex = replayObserverFromIndex(state.history, 0, o);
 
@@ -80,10 +80,10 @@ public final class ReplaySubject<T> extends Subject<T, T> {
                 /**
                  * This function executes if the Subject is terminated.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         // we will finish replaying if there is anything left
                         replayObserverFromIndex(state.history, state.replayState.get(o), o);
                     }
@@ -115,12 +115,12 @@ public final class ReplaySubject<T> extends Subject<T, T> {
 
     @Override
     public void onCompleted() {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
                 state.history.complete(Notification.<T>createOnCompleted());
-                for (SubjectObserver<? super T> o : observers) {
+                for (SubjectSubscriber<? super T> o : observers) {
                     if (caughtUp(o)) {
                         o.onCompleted();
                     }
@@ -131,12 +131,12 @@ public final class ReplaySubject<T> extends Subject<T, T> {
 
     @Override
     public void onError(final Throwable e) {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
                 state.history.complete(Notification.<T>createOnError(e));
-                for (SubjectObserver<? super T> o : observers) {
+                for (SubjectSubscriber<? super T> o : observers) {
                     if (caughtUp(o)) {
                         o.onError(e);
                     }
@@ -151,7 +151,7 @@ public final class ReplaySubject<T> extends Subject<T, T> {
             return;
         }
         state.history.next(v);
-        for (SubjectObserver<? super T> o : subscriptionManager.rawSnapshot()) {
+        for (SubjectSubscriber<? super T> o : subscriptionManager.rawSnapshot()) {
             if (caughtUp(o)) {
                 o.onNext(v);
             }
@@ -165,7 +165,7 @@ public final class ReplaySubject<T> extends Subject<T, T> {
      * With this method: 16,151,174 ops/sec
      * Without: 8,632,358 ops/sec
      */
-    private boolean caughtUp(SubjectObserver<? super T> o) {
+    private boolean caughtUp(SubjectSubscriber<? super T> o) {
         if (!o.caughtUp) {
             o.caughtUp = true;
             replayObserver(o);
@@ -176,7 +176,7 @@ public final class ReplaySubject<T> extends Subject<T, T> {
         }
     }
 
-    private void replayObserver(SubjectObserver<? super T> observer) {
+    private void replayObserver(SubjectSubscriber<? super T> observer) {
         Integer lastEmittedLink = state.replayState.get(observer);
         if (lastEmittedLink != null) {
             int l = replayObserverFromIndex(state.history, lastEmittedLink, observer);
@@ -186,7 +186,7 @@ public final class ReplaySubject<T> extends Subject<T, T> {
         }
     }
 
-    private static <T> int replayObserverFromIndex(History<T> history, Integer l, SubjectObserver<? super T> observer) {
+    private static <T> int replayObserverFromIndex(History<T> history, Integer l, SubjectSubscriber<? super T> observer) {
         while (l < history.index.get()) {
             observer.onNext(history.list.get(l));
             l++;

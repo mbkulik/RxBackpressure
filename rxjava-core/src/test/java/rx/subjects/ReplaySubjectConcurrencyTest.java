@@ -21,13 +21,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
 
 import rx.Observable;
-import rx.Observable.OnSubscribeFunc;
+import rx.Observable.OnSubscribe;
 import rx.Observer;
 import rx.Subscriber;
 import rx.Subscription;
@@ -55,17 +54,16 @@ public class ReplaySubjectConcurrencyTest {
 
             @Override
             public void run() {
-                Observable.create(new OnSubscribeFunc<Long>() {
+                Observable.create(new OnSubscribe<Long>() {
 
                     @Override
-                    public Subscription onSubscribe(Observer<? super Long> o) {
+                    public void call(Subscriber<? super Long> o) {
                         System.out.println("********* Start Source Data ***********");
                         for (long l = 1; l <= 10000; l++) {
                             o.onNext(l);
                         }
                         System.out.println("********* Finished Source Data ***********");
                         o.onCompleted();
-                        return Subscriptions.empty();
                     }
                 }).subscribe(replay);
             }
@@ -165,17 +163,16 @@ public class ReplaySubjectConcurrencyTest {
 
             @Override
             public void run() {
-                Observable.create(new OnSubscribeFunc<Long>() {
+                Observable.create(new OnSubscribe<Long>() {
 
                     @Override
-                    public Subscription onSubscribe(Observer<? super Long> o) {
+                    public void call(Subscriber<? super Long> o) {
                         System.out.println("********* Start Source Data ***********");
                         for (long l = 1; l <= 10000; l++) {
                             o.onNext(l);
                         }
                         System.out.println("********* Finished Source Data ***********");
                         o.onCompleted();
-                        return Subscriptions.empty();
                     }
                 }).subscribe(replay);
             }
@@ -200,7 +197,7 @@ public class ReplaySubjectConcurrencyTest {
 
                 @Override
                 public void run() {
-                    List<Long> values = replay.toList().toBlockingObservable().last();
+                    List<Long> values = replay.toList().toBlockingObservable().single();
                     listOfListsOfValues.add(values);
                     System.out.println("Finished thread: " + count);
                 }
@@ -317,7 +314,7 @@ public class ReplaySubjectConcurrencyTest {
         public void run() {
             try {
                 // a timeout exception will happen if we don't get a terminal state 
-                String v = subject.timeout(2000, TimeUnit.MILLISECONDS).toBlockingObservable().single();
+                String v = subject.toBlockingObservable().single();
                 value.set(v);
             } catch (Exception e) {
                 e.printStackTrace();

@@ -21,12 +21,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Observable.OnSubscribe;
-import rx.Observer;
 import rx.Subscriber;
-import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
-import rx.operators.SafeObservableSubscription;
 import rx.subscriptions.Subscriptions;
 
 /* package */class SubjectSubscriptionManager<T> {
@@ -38,15 +35,16 @@ import rx.subscriptions.Subscriptions;
      * @param onSubscribe
      *            Always runs at the beginning of 'subscribe' regardless of terminal state.
      * @param onTerminated
-     *            Only runs if Subject is in terminal state and the Observer ends up not being registered.
+     *            Only runs if Subject is in terminal state and the Observer ends up not being
+     *            registered.
      * @return
      */
-    public OnSubscribe<T> getOnSubscribeFunc(final Action1<SubjectObserver<? super T>> onSubscribe, final Action1<SubjectObserver<? super T>> onTerminated) {
+    public OnSubscribe<T> getOnSubscribe(final Action1<SubjectSubscriber<? super T>> onSubscribe, final Action1<SubjectSubscriber<? super T>> onTerminated) {
         return new OnSubscribe<T>() {
             @Override
-            public void call(Subscriber<? super T> actualOperator) {
-                SubjectObserver<T> observer = new SubjectObserver<T>(actualOperator);
-                // invoke onSubscribe logic 
+            public void call(final Subscriber<? super T> actualOperator) {
+                final SubjectSubscriber<T> observer = new SubjectSubscriber<T>(actualOperator);
+                // invoke onSubscribe logic
                 if (onSubscribe != null) {
                     onSubscribe.call(observer);
                 }
@@ -61,7 +59,7 @@ import rx.subscriptions.Subscriptions;
                         addedObserver = false;
                         // break out and don't try to modify state
                         newState = current;
-                        // wait for termination to complete if 
+                        // wait for termination to complete if
                         try {
                             current.terminationLatch.await();
                         } catch (InterruptedException e) {
@@ -70,10 +68,7 @@ import rx.subscriptions.Subscriptions;
                         }
                         break;
                     } else {
-                        final SafeObservableSubscription subscription = new SafeObservableSubscription();
-                        actualOperator.add(subscription); // add to parent if the Subject itself is unsubscribed
-                        addedObserver = true;
-                        subscription.wrap(Subscriptions.create(new Action0() {
+                        actualOperator.add(Subscriptions.create(new Action0() {
 
                             @Override
                             public void call() {
@@ -81,14 +76,15 @@ import rx.subscriptions.Subscriptions;
                                 State<T> newState;
                                 do {
                                     current = state.get();
-                                    // on unsubscribe remove it from the map of outbound observers to notify
-                                    newState = current.removeObserver(subscription);
+                                    // on unsubscribe remove it from the map of outbound observers
+                                    // to notify
+                                    newState = current.removeObserver(observer);
                                 } while (!state.compareAndSet(current, newState));
                             }
                         }));
 
                         // on subscribe add it to the map of outbound observers to notify
-                        newState = current.addObserver(subscription, observer);
+                        newState = current.addObserver(observer);
                     }
                 } while (!state.compareAndSet(current, newState));
 
@@ -104,7 +100,7 @@ import rx.subscriptions.Subscriptions;
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected void terminate(Action1<Collection<SubjectObserver<? super T>>> onTerminate) {
+    protected void terminate(Action1<Collection<SubjectSubscriber<? super T>>> onTerminate) {
         State<T> current;
         State<T> newState = null;
         do {
@@ -125,7 +121,7 @@ import rx.subscriptions.Subscriptions;
          */
         try {
             // had to circumvent type check, we know what the array contains
-            onTerminate.call((Collection) Arrays.asList(newState.observers));
+            onTerminate.call((Collection) Arrays.asList(newState.subscribers));
         } finally {
             // mark that termination is completed
             newState.terminationLatch.countDown();
@@ -133,108 +129,108 @@ import rx.subscriptions.Subscriptions;
     }
 
     /**
-     * Returns the array of observers directly.
-     * <em>Don't modify the array!</em>
+     * Returns the array of observers directly. <em>Don't modify the array!</em>
      * 
      * @return the array of current observers
      */
     @SuppressWarnings("unchecked")
-    public SubjectObserver<Object>[] rawSnapshot() {
-        return state.get().observers;
+    public SubjectSubscriber<Object>[] rawSnapshot() {
+        return state.get().subscribers;
     }
 
     @SuppressWarnings("rawtypes")
     protected static class State<T> {
         final boolean terminated;
         final CountDownLatch terminationLatch;
-        final Subscription[] subscriptions;
-        final SubjectObserver[] observers;
-        // to avoid lots of empty arrays
-        final Subscription[] EMPTY_S = new Subscription[0];
-        // to avoid lots of empty arrays
-        final SubjectObserver[] EMPTY_O = new SubjectObserver[0];
+        final SubjectSubscriber[] subscribers;
 
-        private State(boolean isTerminated, CountDownLatch terminationLatch,
-                Subscription[] subscriptions, SubjectObserver[] observers) {
+        private State(boolean isTerminated, CountDownLatch terminationLatch, SubjectSubscriber[] subscribers) {
             this.terminationLatch = terminationLatch;
             this.terminated = isTerminated;
-            this.subscriptions = subscriptions;
-            this.observers = observers;
+            this.subscribers = subscribers;
         }
 
         State() {
             this.terminated = false;
             this.terminationLatch = null;
-            this.subscriptions = EMPTY_S;
-            this.observers = EMPTY_O;
+            this.subscribers = new SubjectSubscriber[0];
         }
 
         public State<T> terminate() {
             if (terminated) {
                 throw new IllegalStateException("Already terminated.");
             }
-            return new State<T>(true, new CountDownLatch(1), subscriptions, observers);
+            return new State<T>(true, new CountDownLatch(1), subscribers);
         }
 
-        public State<T> addObserver(Subscription s, SubjectObserver<? super T> observer) {
-            int n = this.observers.length;
+        public State<T> addObserver(SubjectSubscriber<? super T> subscriber) {
+            int n = this.subscribers.length;
 
-            Subscription[] newsubscriptions = Arrays.copyOf(this.subscriptions, n + 1);
-            SubjectObserver[] newobservers = Arrays.copyOf(this.observers, n + 1);
-
-            newsubscriptions[n] = s;
-            newobservers[n] = observer;
-
-            return createNewWith(newsubscriptions, newobservers);
-        }
-
-        private State<T> createNewWith(Subscription[] newsubscriptions, SubjectObserver[] newobservers) {
-            return new State<T>(terminated, terminationLatch, newsubscriptions, newobservers);
-        }
-
-        public State<T> removeObserver(Subscription s) {
-            // we are empty, nothing to remove
-            if (this.observers.length == 0) {
-                return this;
-            }
-            int n = Math.max(this.observers.length - 1, 1);
-            int copied = 0;
-            Subscription[] newsubscriptions = Arrays.copyOf(this.subscriptions, n);
-            SubjectObserver[] newobservers = Arrays.copyOf(this.observers, n);
-
-            for (int i = 0; i < this.subscriptions.length; i++) {
-                Subscription s0 = this.subscriptions[i];
-                if (s0 != s) {
-                    if (copied == n) {
-                        // if s was not found till the end of the iteration
-                        // we return ourselves since no modification should
-                        // have happened
-                        return this;
-                    }
-                    newsubscriptions[copied] = s0;
-                    newobservers[copied] = this.observers[i];
-                    copied++;
+            // only allow one instance of each subscriber in
+            for (int i = 0; i < n; i++) {
+                if (this.subscribers[i] == subscriber) {
+                    return this;
                 }
             }
 
-            if (copied == 0) {
-                return createNewWith(EMPTY_S, EMPTY_O);
+            SubjectSubscriber[] newSubscribers = Arrays.copyOf(this.subscribers, n + 1);
+
+            newSubscribers[n] = subscriber;
+
+            return createNewWith(newSubscribers);
+        }
+
+        private State<T> createNewWith(SubjectSubscriber[] newSubscribers) {
+            return new State<T>(terminated, terminationLatch, newSubscribers);
+        }
+
+        public State<T> removeObserver(SubjectSubscriber<? super T> subscriber) {
+            // we are empty, nothing to remove
+            if (this.subscribers.length == 0) {
+                return this;
             }
-            // if somehow copied less than expected, truncate the arrays
-            // if s is unique, this should never happen
-            if (copied < n) {
-                return createNewWith(Arrays.copyOf(newsubscriptions, copied), Arrays.copyOf(newobservers, copied));
+
+            int n = this.subscribers.length;
+
+            // find the subscriber in the array
+            int index = -1;
+            for (int i = 0; i < n; i++) {
+                if (this.subscribers[i] == subscriber) {
+                    if (index != -1) {
+                        throw new IllegalStateException("Somehow dupilcate subscribers got in");
+                    }
+                    index = i;
+                }
             }
-            return createNewWith(newsubscriptions, newobservers);
+
+            if (index == -1) {
+                // subscriber wasn't found
+                return this;
+            }
+
+            int newN = this.subscribers.length - 1;
+            if (newN == 0) {
+                // it was the last subscriber
+                return createNewWith(new SubjectSubscriber[0]);
+            }
+
+            SubjectSubscriber[] newSubscribers = new SubjectSubscriber[newN];
+            // example: n=10, newN=9, index=4.
+            // copy everything before the subscriber. example: then copy 0-3 to 0-3
+            System.arraycopy(subscribers, 0, newSubscribers, 0, index);
+            // copy everything after the subscriber. example: and copy 5-9 to 4-8
+            System.arraycopy(subscribers, index + 1, newSubscribers, index, newN - index);
+            
+            return createNewWith(newSubscribers);
         }
     }
 
-    protected static class SubjectObserver<T> implements Observer<T> {
+    protected static class SubjectSubscriber<T> extends Subscriber<T> {
 
-        private final Observer<? super T> actual;
+        private final Subscriber<? super T> actual;
         protected volatile boolean caughtUp = false;
 
-        SubjectObserver(Observer<? super T> actual) {
+        SubjectSubscriber(Subscriber<? super T> actual) {
             this.actual = actual;
         }
 

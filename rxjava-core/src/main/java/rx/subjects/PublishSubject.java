@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import rx.Notification;
 import rx.Observer;
 import rx.functions.Action1;
-import rx.subjects.SubjectSubscriptionManager.SubjectObserver;
+import rx.subjects.SubjectSubscriptionManager.SubjectSubscriber;
 
 /**
  * Subject that, once and {@link Observer} has subscribed, publishes all subsequent events to the subscriber.
@@ -53,26 +53,26 @@ public final class PublishSubject<T> extends Subject<T, T> {
         // set a default value so subscriptions will immediately receive this until a new notification is received
         final AtomicReference<Notification<T>> lastNotification = new AtomicReference<Notification<T>>();
 
-        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribeFunc(
+        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribe(
                 /**
                  * This function executes at beginning of subscription.
                  * 
                  * This will always run, even if Subject is in terminal state.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         // nothing onSubscribe unless in terminal state which is the next function
                     }
                 },
                 /**
                  * This function executes if the Subject is terminated before subscription occurs.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         /*
                          * If we are already terminated, or termination happens while trying to subscribe
                          * this will be invoked and we emit whatever the last terminal value was.
@@ -95,10 +95,10 @@ public final class PublishSubject<T> extends Subject<T, T> {
 
     @Override
     public void onCompleted() {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
                 lastNotification.set(Notification.<T> createOnCompleted());
                 for (Observer<? super T> o : observers) {
                     o.onCompleted();
@@ -109,10 +109,10 @@ public final class PublishSubject<T> extends Subject<T, T> {
 
     @Override
     public void onError(final Throwable e) {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
                 lastNotification.set(Notification.<T>createOnError(e));
                 for (Observer<? super T> o : observers) {
                     o.onError(e);

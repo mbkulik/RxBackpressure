@@ -46,15 +46,6 @@ public class NewThreadScheduler extends Scheduler {
         }
     };
 
-    /**
-     * @deprecated Use Schedulers.newThread();
-     * @return
-     */
-    @Deprecated
-    public static NewThreadScheduler getInstance() {
-        return INSTANCE;
-    }
-
     /* package */static NewThreadScheduler instance() {
         return INSTANCE;
     }

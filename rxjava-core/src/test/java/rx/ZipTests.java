@@ -118,7 +118,7 @@ public class ZipTests {
             }
         });
 
-        assertSame(invoked, result.toBlockingObservable().last());
+        assertSame(invoked, result.toBlockingObservable().single());
     }
 
     Func2<Media, Rating, ExtendedResult> combine = new Func2<Media, Rating, ExtendedResult>() {

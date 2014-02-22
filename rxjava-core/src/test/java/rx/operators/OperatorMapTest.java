@@ -166,14 +166,7 @@ public class OperatorMapTest {
                 }
                 return s;
             }
-        })).doOnError(new Action1<Throwable>() {
-
-            @Override
-            public void call(Throwable t1) {
-                t1.printStackTrace();
-            }
-
-        });
+        }));
 
         m.subscribe(stringObserver);
         verify(stringObserver, times(1)).onNext("one");
@@ -183,39 +176,12 @@ public class OperatorMapTest {
         verify(stringObserver, times(1)).onError(any(Throwable.class));
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testMapWithIssue417() {
-        Observable.from(1).observeOn(Schedulers.computation())
-                .map(new Func1<Integer, Integer>() {
-                    public Integer call(Integer arg0) {
-                        throw new IllegalArgumentException("any error");
-                    }
-                }).toBlockingObservable().single();
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testMapWithErrorInFuncAndThreadPoolScheduler() throws InterruptedException {
-        // The error will throw in one of threads in the thread pool.
-        // If map does not handle it, the error will disappear.
-        // so map needs to handle the error by itself.
-        Observable<String> m = Observable.from("one")
-                .observeOn(Schedulers.computation())
-                .map(new Func1<String, String>() {
-                    public String call(String arg0) {
-                        throw new IllegalArgumentException("any error");
-                    }
-                });
-
-        // block for response, expecting exception thrown
-        m.toBlockingObservable().last();
-    }
-
     /**
      * While mapping over range(1,1).last() we expect IllegalArgumentException since the sequence is empty.
      */
     @Test(expected = IllegalArgumentException.class)
     public void testErrorPassesThruMap() {
-        Observable.range(1, 0).last().map(new Func1<Integer, Integer>() {
+        Observable.<Integer>empty().map(new Func1<Integer, Integer>() {
 
             @Override
             public Integer call(Integer i) {
@@ -246,7 +212,7 @@ public class OperatorMapTest {
      */
     @Test(expected = ArithmeticException.class)
     public void testMapWithErrorInFunc() {
-        Observable.range(1, 1).last().map(new Func1<Integer, Integer>() {
+        Observable.from(1).map(new Func1<Integer, Integer>() {
 
             @Override
             public Integer call(Integer i) {

@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import rx.Notification;
 import rx.Observer;
 import rx.functions.Action1;
-import rx.subjects.SubjectSubscriptionManager.SubjectObserver;
+import rx.subjects.SubjectSubscriptionManager.SubjectSubscriber;
 
 /**
  * Subject that publishes the most recent and all subsequent events to each subscribed {@link Observer}.
@@ -65,19 +65,6 @@ import rx.subjects.SubjectSubscriptionManager.SubjectObserver;
  * @param <T>
  */
 public final class BehaviorSubject<T> extends Subject<T, T> {
-
-    /**
-     * Creates a {@link BehaviorSubject} which publishes the last and all subsequent events to each {@link Observer} that subscribes to it.
-     * 
-     * @param defaultValue
-     *            The value which will be published to any {@link Observer} as long as the {@link BehaviorSubject} has not yet received any events.
-     * @return the constructed {@link BehaviorSubject}.
-     * @deprecated Use {@link create()} instead.
-     */
-    public static <T> BehaviorSubject<T> createWithDefaultValue(T defaultValue) {
-        return create(defaultValue);
-    }
-
     /**
      * Creates a {@link BehaviorSubject} which publishes the last and all subsequent events to each {@link Observer} that subscribes to it.
      * 
@@ -88,18 +75,18 @@ public final class BehaviorSubject<T> extends Subject<T, T> {
     public static <T> BehaviorSubject<T> create(T defaultValue) {
         final SubjectSubscriptionManager<T> subscriptionManager = new SubjectSubscriptionManager<T>();
         // set a default value so subscriptions will immediately receive this until a new notification is received
-        final AtomicReference<Notification<T>> lastNotification = new AtomicReference<Notification<T>>(new Notification<T>(defaultValue));
+        final AtomicReference<Notification<T>> lastNotification = new AtomicReference<Notification<T>>(Notification.createOnNext(defaultValue));
 
-        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribeFunc(
+        OnSubscribe<T> onSubscribe = subscriptionManager.getOnSubscribe(
                 /**
                  * This function executes at beginning of subscription.
                  * 
                  * This will always run, even if Subject is in terminal state.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         /*
                          * When we subscribe we always emit the latest value to the observer.
                          * 
@@ -114,10 +101,10 @@ public final class BehaviorSubject<T> extends Subject<T, T> {
                 /**
                  * This function executes if the Subject is terminated before subscription occurs.
                  */
-                new Action1<SubjectObserver<? super T>>() {
+                new Action1<SubjectSubscriber<? super T>>() {
 
                     @Override
-                    public void call(SubjectObserver<? super T> o) {
+                    public void call(SubjectSubscriber<? super T> o) {
                         /*
                          * If we are already terminated, or termination happens while trying to subscribe
                          * this will be invoked and we emit whatever the last terminal value was.
@@ -140,11 +127,11 @@ public final class BehaviorSubject<T> extends Subject<T, T> {
 
     @Override
     public void onCompleted() {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
-                lastNotification.set(new Notification<T>());
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
+                lastNotification.set(Notification.<T>createOnCompleted());
                 for (Observer<? super T> o : observers) {
                     o.onCompleted();
                 }
@@ -154,11 +141,11 @@ public final class BehaviorSubject<T> extends Subject<T, T> {
 
     @Override
     public void onError(final Throwable e) {
-        subscriptionManager.terminate(new Action1<Collection<SubjectObserver<? super T>>>() {
+        subscriptionManager.terminate(new Action1<Collection<SubjectSubscriber<? super T>>>() {
 
             @Override
-            public void call(Collection<SubjectObserver<? super T>> observers) {
-                lastNotification.set(new Notification<T>(e));
+            public void call(Collection<SubjectSubscriber<? super T>> observers) {
+                lastNotification.set(Notification.<T>createOnError(e));
                 for (Observer<? super T> o : observers) {
                     o.onError(e);
                 }
@@ -172,7 +159,7 @@ public final class BehaviorSubject<T> extends Subject<T, T> {
         // do not overwrite a terminal notification
         // so new subscribers can get them
         if (lastNotification.get().isOnNext()) {
-            lastNotification.set(new Notification<T>(v));
+            lastNotification.set(Notification.createOnNext(v));
             for (Observer<? super T> o : subscriptionManager.rawSnapshot()) {
                 o.onNext(v);
             }

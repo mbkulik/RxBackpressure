@@ -38,25 +38,6 @@ public class CovarianceTest {
         // Observable.<HorrorMovie>from(new Movie()); // may not compile
     }
 
-    @Test
-    public void testSortedList() {
-        Func2<Media, Media, Integer> SORT_FUNCTION = new Func2<Media, Media, Integer>() {
-
-            @Override
-            public Integer call(Media t1, Media t2) {
-                return 1;
-            }
-        };
-
-        // this one would work without the covariance generics
-        Observable<Media> o = Observable.from(new Movie(), new TVSeason(), new Album());
-        o.toSortedList(SORT_FUNCTION);
-
-        // this one would NOT work without the covariance generics
-        Observable<Movie> o2 = Observable.from(new Movie(), new ActionMovie(), new HorrorMovie());
-        o2.toSortedList(SORT_FUNCTION);
-    }
-
     /*
      * Most tests are moved into their applicable classes such as [Operator]Tests.java
      */

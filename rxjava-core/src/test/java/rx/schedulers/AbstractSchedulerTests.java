@@ -32,7 +32,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import rx.Observable;
-import rx.Observable.OnSubscribeFunc;
+import rx.Observable.OnSubscribe;
 import rx.Observer;
 import rx.Scheduler;
 import rx.Scheduler.Inner;
@@ -128,7 +128,7 @@ public abstract class AbstractSchedulerTests {
 
         });
 
-        List<String> strings = m.toList().toBlockingObservable().last();
+        List<String> strings = m.toList().toBlockingObservable().single();
 
         assertEquals(4, strings.size());
         // because flatMap does a merge there is no guarantee of order
@@ -302,10 +302,10 @@ public abstract class AbstractSchedulerTests {
 
     @Test
     public final void testRecursiveSchedulerInObservable() {
-        Observable<Integer> obs = Observable.create(new OnSubscribeFunc<Integer>() {
+        Observable<Integer> obs = Observable.create(new OnSubscribe<Integer>() {
             @Override
-            public Subscription onSubscribe(final Observer<? super Integer> observer) {
-                return getScheduler().schedule(new Action1<Inner>() {
+            public void call(final Subscriber<? super Integer> observer) {
+                getScheduler().schedule(new Action1<Inner>() {
                     int i = 0;
 
                     @Override
@@ -340,10 +340,10 @@ public abstract class AbstractSchedulerTests {
     public final void testConcurrentOnNextFailsValidation() throws InterruptedException {
         final int count = 10;
         final CountDownLatch latch = new CountDownLatch(count);
-        Observable<String> o = Observable.create(new OnSubscribeFunc<String>() {
+        Observable<String> o = Observable.create(new OnSubscribe<String>() {
 
             @Override
-            public Subscription onSubscribe(final Observer<? super String> observer) {
+            public void call(final Subscriber<? super String> observer) {
                 for (int i = 0; i < count; i++) {
                     final int v = i;
                     new Thread(new Runnable() {
@@ -356,7 +356,6 @@ public abstract class AbstractSchedulerTests {
                         }
                     }).start();
                 }
-                return Subscriptions.empty();
             }
         });
 
@@ -374,26 +373,6 @@ public abstract class AbstractSchedulerTests {
     }
 
     @Test
-    public final void testObserveOn() throws InterruptedException {
-        final Scheduler scheduler = getScheduler();
-
-        Observable<String> o = Observable.from("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten");
-
-        ConcurrentObserverValidator<String> observer = new ConcurrentObserverValidator<String>();
-
-        o.observeOn(scheduler).subscribe(observer);
-
-        if (!observer.completed.await(3000, TimeUnit.MILLISECONDS)) {
-            fail("timed out");
-        }
-
-        if (observer.error.get() != null) {
-            observer.error.get().printStackTrace();
-            fail("Error: " + observer.error.get().getMessage());
-        }
-    }
-
-    @Test
     public final void testSubscribeOnNestedConcurrency() throws InterruptedException {
         final Scheduler scheduler = getScheduler();
 
@@ -402,13 +381,12 @@ public abstract class AbstractSchedulerTests {
 
                     @Override
                     public Observable<String> call(final String v) {
-                        return Observable.create(new OnSubscribeFunc<String>() {
+                        return Observable.create(new OnSubscribe<String>() {
 
                             @Override
-                            public Subscription onSubscribe(final Observer<? super String> observer) {
+                            public void call(final Subscriber<? super String> observer) {
                                 observer.onNext("value_after_map-" + v);
                                 observer.onCompleted();
-                                return Subscriptions.empty();
                             }
                         }).subscribeOn(scheduler);
                     }

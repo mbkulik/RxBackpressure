@@ -19,7 +19,6 @@ import java.util.concurrent.Future;
 
 import rx.Subscription;
 import rx.functions.Action0;
-import rx.operators.SafeObservableSubscription;
 
 /**
  * Helper methods and utilities for creating and working with {@link Subscription} objects
@@ -42,22 +41,7 @@ public final class Subscriptions {
      * @return {@link Subscription}
      */
     public static Subscription create(final Action0 unsubscribe) {
-        return new SafeObservableSubscription(new Subscription() {
-
-            private volatile boolean unsubscribed = false;
-
-            @Override
-            public void unsubscribe() {
-                unsubscribed = true;
-                unsubscribe.call();
-            }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return unsubscribed;
-            }
-
-        });
+        return BooleanSubscription.create(unsubscribe);
     }
 
     /**

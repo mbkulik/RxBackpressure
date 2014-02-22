@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
 import rx.Observer;
 import rx.Subscriber;
 import rx.Subscription;
@@ -49,8 +50,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testSingleThreadedBasic() {
-        Subscription s = mock(Subscription.class);
-        TestSingleThreadedObservable onSubscribe = new TestSingleThreadedObservable(s, "one", "two", "three");
+        TestSingleThreadedObservable onSubscribe = new TestSingleThreadedObservable("one", "two", "three");
         Observable<String> w = Observable.create(onSubscribe);
 
         SynchronizedObserver<String> aw = new SynchronizedObserver<String>(observer);
@@ -70,8 +70,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedBasic() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three");
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three");
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -95,8 +94,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedBasicWithLock() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three");
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three");
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -134,8 +132,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedWithNPE() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three", null);
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three", null);
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -165,8 +162,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedWithNPEAndLock() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three", null);
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three", null);
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -210,8 +206,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedWithNPEinMiddle() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three", null, "four", "five", "six", "seven", "eight", "nine");
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three", null, "four", "five", "six", "seven", "eight", "nine");
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -239,8 +234,7 @@ public class SynchronizedObserverTest {
 
     @Test
     public void testMultiThreadedWithNPEinMiddleAndLock() {
-        Subscription s = mock(Subscription.class);
-        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable(s, "one", "two", "three", null, "four", "five", "six", "seven", "eight", "nine");
+        TestMultiThreadedObservable onSubscribe = new TestMultiThreadedObservable("one", "two", "three", null, "four", "five", "six", "seven", "eight", "nine");
         Observable<String> w = Observable.create(onSubscribe);
 
         BusyObserver busyObserver = new BusyObserver();
@@ -505,19 +499,15 @@ public class SynchronizedObserverTest {
     /**
      * This spawns a single thread for the subscribe execution
      */
-    private static class TestSingleThreadedObservable implements Observable.OnSubscribeFunc<String> {
-
-        final Subscription s;
+    private static class TestSingleThreadedObservable implements OnSubscribe<String> {
         final String[] values;
         private Thread t = null;
 
-        public TestSingleThreadedObservable(final Subscription s, final String... values) {
-            this.s = s;
+        public TestSingleThreadedObservable(final String... values) {
             this.values = values;
-
         }
 
-        public Subscription onSubscribe(final Observer<? super String> observer) {
+        public void call(final Subscriber<? super String> observer) {
             System.out.println("TestSingleThreadedObservable subscribed to ...");
             t = new Thread(new Runnable() {
 
@@ -539,7 +529,6 @@ public class SynchronizedObserverTest {
             System.out.println("starting TestSingleThreadedObservable thread");
             t.start();
             System.out.println("done starting TestSingleThreadedObservable thread");
-            return s;
         }
 
         public void waitToFinish() {
@@ -555,23 +544,20 @@ public class SynchronizedObserverTest {
     /**
      * This spawns a thread for the subscription, then a separate thread for each onNext call.
      */
-    private static class TestMultiThreadedObservable implements Observable.OnSubscribeFunc<String> {
-
-        final Subscription s;
+    private static class TestMultiThreadedObservable implements OnSubscribe<String> {
         final String[] values;
         Thread t = null;
         AtomicInteger threadsRunning = new AtomicInteger();
         AtomicInteger maxConcurrentThreads = new AtomicInteger();
         ExecutorService threadPool;
 
-        public TestMultiThreadedObservable(Subscription s, String... values) {
-            this.s = s;
+        public TestMultiThreadedObservable(String... values) {
             this.values = values;
             this.threadPool = Executors.newCachedThreadPool();
         }
 
         @Override
-        public Subscription onSubscribe(final Observer<? super String> observer) {
+        public void call(final Subscriber<? super String> observer) {
             System.out.println("TestMultiThreadedObservable subscribed to ...");
             t = new Thread(new Runnable() {
 
@@ -626,7 +612,6 @@ public class SynchronizedObserverTest {
             System.out.println("starting TestMultiThreadedObservable thread");
             t.start();
             System.out.println("done starting TestMultiThreadedObservable thread");
-            return s;
         }
 
         public void waitToFinish() {
