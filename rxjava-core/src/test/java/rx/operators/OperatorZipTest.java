@@ -15,9 +15,11 @@
  */
 package rx.operators;
 
+
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
+import static rx.Observable.zip;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -811,8 +813,7 @@ public class OperatorZipTest {
 
     @Test
     public void testZip() {
-        Observable<String> os = OBSERVABLE_OF_5_INTEGERS
-                .zip(OBSERVABLE_OF_5_INTEGERS, new Func2<Integer, Integer, String>() {
+        Observable<String> os = zip(OBSERVABLE_OF_5_INTEGERS, OBSERVABLE_OF_5_INTEGERS, new Func2<Integer, Integer, String>() {
 
                     @Override
                     public String call(Integer a, Integer b) {
@@ -1051,26 +1052,22 @@ public class OperatorZipTest {
         o.toBlockingObservable().single();
     }
 
-    Observable<Integer> OBSERVABLE_OF_5_INTEGERS = OBSERVABLE_OF_5_INTEGERS(new AtomicInteger());
+    Observable<Integer> OBSERVABLE_OF_5_INTEGERS = Observable.create(new OnSubscribe<Integer>() {
+        private AtomicInteger numEmitted = new AtomicInteger();
 
-    Observable<Integer> OBSERVABLE_OF_5_INTEGERS(final AtomicInteger numEmitted) {
-        return Observable.create(new OnSubscribe<Integer>() {
-
-            @Override
-            public void call(final Subscriber<? super Integer> o) {
-                for (int i = 1; i <= 5; i++) {
-                    if (o.isUnsubscribed()) {
-                        break;
-                    }
-                    numEmitted.incrementAndGet();
-                    o.onNext(i);
-                    Thread.yield();
+        @Override
+        public void call(final Subscriber<? super Integer> o) {
+            for (int i = 1; i <= 5; i++) {
+                if (o.isUnsubscribed()) {
+                    break;
                 }
-                o.onCompleted();
+                numEmitted.incrementAndGet();
+                o.onNext(i);
+                Thread.yield();
             }
-
-        });
-    }
+            o.onCompleted();
+        }
+    }).whilePausedBuffer();
 
     Observable<Integer> ASYNC_OBSERVABLE_OF_INFINITE_INTEGERS(final CountDownLatch latch) {
         return Observable.create(new OnSubscribe<Integer>() {
@@ -1097,6 +1094,6 @@ public class OperatorZipTest {
 
             }
 
-        });
+        }).whilePausedBuffer();
     }
 }

@@ -51,20 +51,10 @@ public class OperatorMergeTest {
 
     @Test
     public void testMergeObservableOfObservables() {
-        final Observable<String> o1 = Observable.just("hello");
-        final Observable<String> o2 = Observable.just("hello");
-
-        Observable<Observable<String>> observableOfObservables = Observable.create(new OnSubscribe<Observable<String>>() {
-
-            @Override
-            public void call(Subscriber<? super Observable<String>> observer) {
-                // simulate what would happen in an observable
-                observer.onNext(o1);
-                observer.onNext(o2);
-                observer.onCompleted();
-            }
-
-        });
+        final Observable<String> o1 = Observable.from("hello");
+        final Observable<String> o2 = Observable.from("hello");
+        Observable<Observable<String>> observableOfObservables = Observable.from(o1, o2);
+        
         Observable<String> m = Observable.merge(observableOfObservables);
         m.subscribe(stringObserver);
 
@@ -75,8 +65,8 @@ public class OperatorMergeTest {
 
     @Test
     public void testMergeArray() {
-        final Observable<String> o1 = Observable.just("hello");
-        final Observable<String> o2 = Observable.just("hello");
+        final Observable<String> o1 = Observable.from("hello");
+        final Observable<String> o2 = Observable.from("hello");
 
         Observable<String> m = Observable.merge(o1, o2);
         m.subscribe(stringObserver);
@@ -88,8 +78,8 @@ public class OperatorMergeTest {
 
     @Test
     public void testMergeList() {
-        final Observable<String> o1 = Observable.just("hello");
-        final Observable<String> o2 = Observable.just("hello");
+        final Observable<String> o1 = Observable.from("hello");
+        final Observable<String> o2 = Observable.from("hello");
         List<Observable<String>> listOfObservables = new ArrayList<Observable<String>>();
         listOfObservables.add(o1);
         listOfObservables.add(o2);

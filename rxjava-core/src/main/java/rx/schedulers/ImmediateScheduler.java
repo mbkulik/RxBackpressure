@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import rx.Scheduler;
 import rx.Subscription;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.subscriptions.BooleanSubscription;
 
@@ -51,7 +52,7 @@ public final class ImmediateScheduler extends Scheduler {
 
     private class InnerImmediateScheduler extends Scheduler.Inner implements Subscription {
 
-        final BooleanSubscription innerSubscription = new BooleanSubscription();
+        final BooleanSubscription innerSubscription = BooleanSubscription.create();
 
         @Override
         public void schedule(Action1<Scheduler.Inner> action, long delayTime, TimeUnit unit) {
@@ -76,6 +77,20 @@ public final class ImmediateScheduler extends Scheduler {
             return innerSubscription.isUnsubscribed();
         }
 
+        @Override
+        public void pause() {
+            innerSubscription.pause();
+        }
+        
+        @Override
+        public boolean isPaused() {
+            return innerSubscription.isPaused();
+        }
+
+        @Override
+        public void resumeWith(Action0 resume) {
+            innerSubscription.resumeWith(resume);
+        }
     }
 
 }

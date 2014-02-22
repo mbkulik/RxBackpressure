@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Scheduler;
 import rx.Subscription;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.subscriptions.BooleanSubscription;
 
@@ -57,7 +58,7 @@ public class TrampolineScheduler extends Scheduler {
 
     private class InnerCurrentThreadScheduler extends Scheduler.Inner implements Subscription {
 
-        private final BooleanSubscription innerSubscription = new BooleanSubscription();
+        private final BooleanSubscription innerSubscription = BooleanSubscription.create();
 
         @Override
         public void schedule(Action1<Scheduler.Inner> action) {
@@ -108,6 +109,20 @@ public class TrampolineScheduler extends Scheduler {
             return innerSubscription.isUnsubscribed();
         }
 
+        @Override
+        public void pause() {
+            innerSubscription.pause();
+        }
+        
+        @Override
+        public boolean isPaused() {
+            return innerSubscription.isPaused();
+        }
+
+        @Override
+        public void resumeWith(Action0 resume) {
+            innerSubscription.resumeWith(resume);
+        }
     }
 
     private static class TimedAction implements Comparable<TimedAction> {

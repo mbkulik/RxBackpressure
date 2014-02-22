@@ -64,7 +64,20 @@ public final class Subscriptions {
             public boolean isUnsubscribed() {
                 return f.isCancelled();
             }
-
+            
+            @Override
+            public void pause() {
+            }
+            
+            @Override
+            public boolean isPaused() {
+                return false;
+            }
+            
+            @Override
+            public void resumeWith(Action0 resume) {
+                resume.call();
+            }
         };
     }
 
@@ -90,6 +103,20 @@ public final class Subscriptions {
         @Override
         public boolean isUnsubscribed() {
             return false;
+        }
+        
+        @Override
+        public void pause() {
+        }
+        
+        @Override
+        public boolean isPaused() {
+            return false;
+        }
+        
+        @Override
+        public void resumeWith(Action0 resume) {
+            resume.call();
         }
     };
 }

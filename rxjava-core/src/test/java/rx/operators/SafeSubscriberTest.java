@@ -25,8 +25,10 @@ import rx.Observable;
 import rx.Observer;
 import rx.Subscriber;
 import rx.Subscription;
+import rx.functions.Action0;
 import rx.observers.SafeSubscriber;
 import rx.observers.TestSubscriber;
+import rx.subscriptions.BooleanSubscription;
 
 public class SafeSubscriberTest {
 
@@ -147,18 +149,13 @@ public class SafeSubscriberTest {
         @Override
         public void call(final Subscriber<? super String> observer) {
             this.observer = observer;
-            observer.add(new Subscription() {
+            observer.add(BooleanSubscription.create(new Action0() {
                 @Override
-                public void unsubscribe() {
+                public void call() {
                     // going to do nothing to pretend I'm a bad Observable that keeps allowing events to be sent
                     System.out.println("==> SynchronizeTest unsubscribe that does nothing!");
                 }
-
-                @Override
-                public boolean isUnsubscribed() {
-                    return false;
-                }
-            });
+            }));
         }
 
     }

@@ -33,6 +33,7 @@ import rx.functions.Func8;
 import rx.functions.Func9;
 import rx.functions.FuncN;
 import rx.functions.Function;
+import rx.functions.Functions;
 import rx.observables.BlockingObservable;
 import rx.observables.GroupedObservable;
 import rx.observers.SafeSubscriber;
@@ -48,6 +49,7 @@ import rx.operators.OperatorSingle;
 import rx.operators.OperatorSubscribeOn;
 import rx.operators.OperatorTake;
 import rx.operators.OperatorToObservableList;
+import rx.operators.OperatorWhilePaused;
 import rx.operators.OperatorZip;
 import rx.subscriptions.Subscriptions;
 
@@ -109,8 +111,37 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-create">RxJava Wiki: create()</a>
      * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.linq.observable.create.aspx">MSDN: Observable.Create</a>
      */
-    public final static <T> Observable<T> create(OnSubscribe<T> f) {
-        return new Observable<T>(f);
+    public final static <T> Observable<T> create(final OnSubscribe<T> f) {
+        return new Observable<T>(new OnSubscribe<T>() {
+            
+            @Override
+            public void call(final Subscriber<? super T> o) {
+                f.call(new Subscriber<T>() {
+                    @Override
+                    public void onCompleted() {
+                        if(isUnsubscribed())
+                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
+                        if(isPaused())
+                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
+                        o.onCompleted();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        o.onError(e);
+                    }
+
+                    @Override
+                    public void onNext(T t) {
+                        if(isUnsubscribed())
+                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
+                        if(isPaused())
+                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
+                        o.onNext(t);
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -327,268 +358,6 @@ public class Observable<T> {
     }
 
     /**
-     * Converts two items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2))}
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2) {
-        return from(Arrays.asList(t1, t2));
-    }
-
-    /**
-     * Converts three items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3) {
-        return from(Arrays.asList(t1, t2, t3));
-    }
-
-    /**
-     * Converts four items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4) {
-        return from(Arrays.asList(t1, t2, t3, t4));
-    }
-
-    /**
-     * Converts five items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5));
-    }
-
-    /**
-     * Converts six items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param t6
-     *            sixth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5,t6))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5, T t6) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5, t6));
-    }
-
-    /**
-     * Converts seven items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param t6
-     *            sixth item
-     * @param t7
-     *            seventh item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5,t6,t7))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5, T t6, T t7) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5, t6, t7));
-    }
-
-    /**
-     * Converts eight items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param t6
-     *            sixth item
-     * @param t7
-     *            seventh item
-     * @param t8
-     *            eighth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5,t6,t7,t8))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5, T t6, T t7, T t8) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5, t6, t7, t8));
-    }
-
-    /**
-     * Converts nine items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param t6
-     *            sixth item
-     * @param t7
-     *            seventh item
-     * @param t8
-     *            eighth item
-     * @param t9
-     *            ninth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5,t6,t7,t8,t9))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5, T t6, T t7, T t8, T t9) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5, t6, t7, t8, t9));
-    }
-
-    /**
-     * Converts ten items into an Observable that emits those items.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
-     * <p>
-     * 
-     * @param t1
-     *            first item
-     * @param t2
-     *            second item
-     * @param t3
-     *            third item
-     * @param t4
-     *            fourth item
-     * @param t5
-     *            fifth item
-     * @param t6
-     *            sixth item
-     * @param t7
-     *            seventh item
-     * @param t8
-     *            eighth item
-     * @param t9
-     *            ninth item
-     * @param t10
-     *            tenth item
-     * @param <T>
-     *            the type of these items
-     * @return an Observable that emits each item
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-from">RxJava Wiki: from()</a>
-     * @deprecated use {@link #from(Iterable)} instead such as {@code from(Arrays.asList(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10))}.
-     */
-    @Deprecated
-    // suppress unchecked because we are using varargs inside the method
-    public final static <T> Observable<T> from(T t1, T t2, T t3, T t4, T t5, T t6, T t7, T t8, T t9, T t10) {
-        return from(Arrays.asList(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10));
-    }
-
-    /**
      * Converts an Array into an Observable that emits the items in the Array.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/from.png">
@@ -621,53 +390,6 @@ public class Observable<T> {
      */
     public final static <T> Observable<T> from(T[] items, Scheduler scheduler) {
         return from(Arrays.asList(items), scheduler);
-    }
-
-    /**
-     * Returns an Observable that emits a single item and then completes.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/just.png">
-     * <p>
-     * To convert any object into an Observable that emits that object, pass that object into the {@code just}
-     * method.
-     * <p>
-     * This is similar to the {@link #from(java.lang.Object[])} method, except that {@code from()} will convert
-     * an {@link Iterable} object into an Observable that emits each of the items in the Iterable, one at a
-     * time, while the {@code just()} method converts an Iterable into an Observable that emits the entire
-     * Iterable as a single item.
-     * 
-     * @param value
-     *            the item to emit
-     * @param <T>
-     *            the type of that item
-     * @return an Observable that emits {@code value} as a single item and then completes
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-just">RxJava Wiki: just()</a>
-     */
-    public final static <T> Observable<T> just(T value) {
-        return from(Arrays.asList(value));
-    }
-    
-    /**
-     * Returns an Observable that emits a single item and then completes, on a specified Scheduler.
-     * <p>
-     * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/just.s.png">
-     * <p>
-     * This is a scheduler version of {@link #just(Object)}.
-     * 
-     * @param value
-     *            the item to emit
-     * @param <T>
-     *            the type of that item
-     * @param scheduler
-     *            the Scheduler to emit the single item on
-     * @return an Observable that emits {@code value} as a single item and then completes, on a specified
-     *         Scheduler
-     * @see <a href="https://github.com/Netflix/RxJava/wiki/Creating-Observables#wiki-just">RxJava Wiki: just()</a>
-     * @deprecated use {@link #from(T)}
-     */
-    @Deprecated
-    public final static <T> Observable<T> just(T value, Scheduler scheduler) {
-        return from(Arrays.asList((value)), scheduler);
     }
 
     /**
@@ -1038,11 +760,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <R> Observable<R> zip(Iterable<? extends Observable<?>> ws, FuncN<? extends R> zipFunction) {
-        List<Observable<?>> os = new ArrayList<Observable<?>>();
-        for (Observable<?> o : ws) {
-            os.add(o);
-        }
-        return Observable.just(os.toArray(new Observable<?>[os.size()])).lift(new OperatorZip<R>(zipFunction));
+        return Observable.from(ws).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -1068,14 +786,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <R> Observable<R> zip(Observable<? extends Observable<?>> ws, final FuncN<? extends R> zipFunction) {
-        return ws.toList().map(new Func1<List<? extends Observable<?>>, Observable<?>[]>() {
-
-            @Override
-            public Observable<?>[] call(List<? extends Observable<?>> o) {
-                return o.toArray(new Observable<?>[o.size()]);
-            }
-
-        }).lift(new OperatorZip<R>(zipFunction));
+        return ws.lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -1104,7 +815,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, final Func2<? super T1, ? super T2, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1136,7 +847,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Func3<? super T1, ? super T2, ? super T3, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1170,7 +881,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, T4, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Func4<? super T1, ? super T2, ? super T3, ? super T4, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1206,7 +917,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, T4, T5, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Func5<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4, o5 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4, o5)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1244,7 +955,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6,
             Func6<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4, o5, o6)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1284,7 +995,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7,
             Func7<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1326,7 +1037,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, T8, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7, Observable<? extends T8> o8,
             Func8<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? super T8, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7, o8 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7, o8)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -1370,7 +1081,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, T8, T9, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7, Observable<? extends T8> o8,
             Observable<? extends T9> o9, Func9<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? super T8, ? super T9, ? extends R> zipFunction) {
-        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7, o8, o9 }).lift(new OperatorZip<R>(zipFunction));
+        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7, o8, o9)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
     }
 
     /**
@@ -2282,6 +1993,22 @@ public class Observable<T> {
         return zip(this, other, zipFunction);
     }
 
+    public final Observable<T> whilePausedDrop() {
+        return lift((Operator<T, T>) OperatorWhilePaused.DROP);
+    }
+
+    public final Observable<T> whilePausedBlock() {
+        return lift((Operator<T, T>) OperatorWhilePaused.BLOCK);
+    }
+
+    public final Observable<T> whilePausedBuffer() {
+        return lift((Operator<T, T>) OperatorWhilePaused.BUFFER);
+    }
+
+    public final Observable<T> whilePausedUnsubscribe() {
+        return lift(new OperatorWhilePaused.Unsubscribe<T>(this));
+    }
+
     /**
      * An Observable that never sends any information to an {@link Observer}.
      * 
@@ -2360,7 +2087,7 @@ public class Observable<T> {
         } else {
             // we treat the following package as "internal" and don't wrap it
             Package p = o.getClass().getPackage(); // it can be null
-            Boolean isInternal = (p != null && p.getName().startsWith("rx.operators"));
+            Boolean isInternal = (p != null && p.getName().startsWith("rx."));
             internalClassMap.put(clazz, isInternal);
             return isInternal;
         }

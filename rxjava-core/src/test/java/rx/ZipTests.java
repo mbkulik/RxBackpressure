@@ -17,9 +17,11 @@ package rx;
 
 import static org.junit.Assert.*;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.Test;
@@ -37,8 +39,45 @@ import rx.functions.Func1;
 import rx.functions.Func2;
 import rx.functions.FuncN;
 import rx.observables.GroupedObservable;
+import rx.observers.Subscribers;
+import rx.operators.OperatorZip;
 
 public class ZipTests {
+
+    @Test
+    public void testSyncZip() {
+        OperatorZip<String> zipOp = new OperatorZip<String>(new FuncN<String>() {
+            @Override
+            public String call(Object... args) {
+                StringBuilder str = new StringBuilder().append(args[0]);
+                for (int i = 1; i < args.length; i++) {
+                    str.append(":").append(args[i]);
+                }
+                return str.toString();
+            }
+        });
+
+        Observable<Integer> in1 = Observable.from(0, 1, 2, 3, 4, 5);
+        Observable<String> in2 = in1.map(new Func1<Integer, String>() {
+            @Override
+            public String call(Integer i) {
+                return Character.toString((char) ('a' + i));
+            }
+        });
+        in1 = in1.take(3);
+
+        final Observable<? extends Observable<?>> in = Observable.from(in1, in2);
+        final Observable<String> out = in.lift(zipOp);
+
+        System.out.print("out:");
+        final Subscriber<Object> x = Subscribers.empty();
+        out.subscribe(x);
+        System.out.println();
+
+        List<String> list = out.toList().toBlockingObservable().single();
+
+        assertEquals(Arrays.asList("0:a", "1:b", "2:c"), list);
+    }
 
     @Test
     public void testZipObservableOfObservables() {
@@ -97,19 +136,18 @@ public class ZipTests {
     }
 
     /**
-     * Occasionally zip may be invoked with 0 observables. Test that we don't block indefinitely instead
-     * of immediately invoking zip with 0 argument.
+     * Occasionally zip may be invoked with 0 observables. Test that we don't block indefinitely
+     * instead of immediately invoking zip with 0 argument.
      * 
-     * We now expect an IllegalArgumentException since last() requires at least one value and nothing will be emitted.
+     * We now expect an IllegalArgumentException since last() requires at least one value and
+     * nothing will be emitted.
      */
     @Test(expected = IllegalArgumentException.class)
     public void nonBlockingObservable() {
 
         final Object invoked = new Object();
 
-        Collection<Observable<Object>> observables = Collections.emptyList();
-
-        Observable<Object> result = Observable.zip(observables, new FuncN<Object>() {
+        Observable<Object> result = Observable.zip(Observable.<Observable<?>>empty(), new FuncN<Object>() {
             @Override
             public Object call(final Object... args) {
                 System.out.println("received: " + args);

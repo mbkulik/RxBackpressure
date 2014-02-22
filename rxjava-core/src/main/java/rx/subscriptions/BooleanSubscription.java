@@ -29,22 +29,25 @@ import rx.functions.Action0;
 public final class BooleanSubscription implements Subscription {
 
     private final AtomicBoolean unsubscribed = new AtomicBoolean(false);
-    private final Action0 action;
+    private final Action0 unsubscribeAction;
+    private final AtomicBoolean paused = new AtomicBoolean(false);
+    private final Action0 pauseAction;
 
-    public BooleanSubscription() {
-        action = null;
-    }
-
-    private BooleanSubscription(Action0 action) {
-        this.action = action;
+    private BooleanSubscription(Action0 unsubscribeAction, Action0 pauseAction) {
+        this.unsubscribeAction = unsubscribeAction;
+        this.pauseAction = pauseAction;
     }
 
     public static BooleanSubscription create() {
-        return new BooleanSubscription();
+        return new BooleanSubscription(null, null);
     }
 
     public static BooleanSubscription create(Action0 onUnsubscribe) {
-        return new BooleanSubscription(onUnsubscribe);
+        return new BooleanSubscription(onUnsubscribe, null);
+    }
+
+    public static BooleanSubscription create(Action0 onUnsubscribe, Action0 onPause) {
+        return new BooleanSubscription(onUnsubscribe, onPause);
     }
 
     public boolean isUnsubscribed() {
@@ -54,10 +57,27 @@ public final class BooleanSubscription implements Subscription {
     @Override
     public final void unsubscribe() {
         if (unsubscribed.compareAndSet(false, true)) {
-            if (action != null) {
-                action.call();
+            if (unsubscribeAction != null) {
+                unsubscribeAction.call();
             }
         }
     }
 
+    @Override
+    public boolean isPaused() {
+        return paused.get();
+    }
+    
+    @Override
+    public void pause() {
+        if (paused.compareAndSet(false, true)) {
+            if (pauseAction != null)
+                pauseAction.call();
+        }
+    }
+    
+    @Override
+    public void resumeWith(Action0 resume) {
+        resume.call();
+    }
 }

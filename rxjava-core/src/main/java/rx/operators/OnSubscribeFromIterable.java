@@ -15,8 +15,11 @@
  */
 package rx.operators;
 
+import java.util.Iterator;
+
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
+import rx.functions.Action0;
 
 /**
  * Converts an Iterable sequence into an Observable.
@@ -35,14 +38,32 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
     }
 
     @Override
-    public void call(Subscriber<? super T> o) {
-        for (T i : is) {
-            if (o.isUnsubscribed()) {
-                return;
+    public void call(final Subscriber<? super T> o) {
+        final Iterator<? extends T> iter = is.iterator();
+        new Action0() {
+            @Override
+            public void call() {
+                if (o.isUnsubscribed()) {
+                    return;
+                }
+                if (o.isPaused()) {
+                    o.resumeWith(this);
+                    return;
+                }
+                while(iter.hasNext()) {
+                    final T value = iter.next();
+                    o.onNext(value);
+                    if (o.isUnsubscribed()) {
+                        return;
+                    }
+                    if (o.isPaused()) {
+                        o.resumeWith(this);
+                        return;
+                    }
+                }
+                o.onCompleted();
             }
-            o.onNext(i);
-        }
-        o.onCompleted();
+        }.call();
     }
 
 }

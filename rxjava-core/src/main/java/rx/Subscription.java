@@ -15,6 +15,7 @@
  */
 package rx;
 
+import rx.functions.Action0;
 import rx.subscriptions.Subscriptions;
 
 /**
@@ -35,4 +36,9 @@ public interface Subscription {
     
     public boolean isUnsubscribed();
 
+    public void pause();
+
+    public boolean isPaused();
+    
+    public void resumeWith(Action0 resume);
 }

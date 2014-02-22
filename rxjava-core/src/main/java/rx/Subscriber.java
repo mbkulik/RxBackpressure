@@ -15,36 +15,45 @@
  */
 package rx;
 
+import rx.functions.Action0;
 import rx.subscriptions.CompositeSubscription;
 
 /**
  * Provides a mechanism for receiving push-based notifications.
  * <p>
- * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the {@link Observable} calls the
- * Observer's <code>onNext</code> method to provide notifications. A well-behaved {@link Observable} will call an Observer's
- * <code>onCompleted</code> closure exactly once or the Observer's <code>onError</code> closure exactly once.
+ * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the
+ * {@link Observable} calls the Observer's <code>onNext</code> method to provide notifications. A
+ * well-behaved {@link Observable} will call an Observer's <code>onCompleted</code> closure exactly
+ * once or the Observer's <code>onError</code> closure exactly once.
  * <p>
- * For more information see the <a href="https://github.com/Netflix/RxJava/wiki/Observable">RxJava Wiki</a>
+ * For more information see the <a href="https://github.com/Netflix/RxJava/wiki/Observable">RxJava
+ * Wiki</a>
  * 
  * @param <T>
  */
 public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
     private final CompositeSubscription cs;
+    private final Subscriber<?> op;
 
-    protected Subscriber(CompositeSubscription cs) {
+    private Subscriber(CompositeSubscription cs, Subscriber<?> op) {
         if (cs == null) {
             throw new IllegalArgumentException("The CompositeSubscription can not be null");
         }
         this.cs = cs;
+        this.op = op;
     }
 
     protected Subscriber() {
-        this(new CompositeSubscription());
+        this(new CompositeSubscription(), null);
     }
 
     protected Subscriber(Subscriber<?> op) {
-        this(op.cs);
+        this(op.cs, op);
+    }
+
+    protected Subscriber(CompositeSubscription cs) {
+        this(cs, null);
     }
 
     /**
@@ -61,5 +70,29 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
     public final boolean isUnsubscribed() {
         return cs.isUnsubscribed();
+    }
+
+    public final void pause() {
+        cs.pause();
+    }
+
+    protected void resume() {
+        cs.resume();
+    }
+
+    public void resumeWith(Action0 resume) {
+        cs.resumeWith(resume);
+        if (op != null && op.isPaused()) {
+            op.resumeWith(new Action0() {
+                @Override
+                public void call() {
+                    resume();
+                }
+            });
+        }
+    }
+
+    public final boolean isPaused() {
+        return cs.isPaused();
     }
 }

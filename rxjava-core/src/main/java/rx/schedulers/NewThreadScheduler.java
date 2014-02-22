@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Scheduler;
 import rx.Subscription;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
 import rx.subscriptions.Subscriptions;
@@ -149,6 +150,19 @@ public class NewThreadScheduler extends Scheduler {
             return innerSubscription.isUnsubscribed();
         }
 
-    }
+        @Override
+        public void pause() {
+            innerSubscription.pause();
+        }
 
+        @Override
+        public boolean isPaused() {
+            return innerSubscription.isPaused();
+        }
+
+        @Override
+        public void resumeWith(Action0 resume) {
+            innerSubscription.resumeWith(resume);
+        }
+    }
 }

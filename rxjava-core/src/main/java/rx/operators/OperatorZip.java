@@ -15,247 +15,141 @@
  */
 package rx.operators;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Observable;
 import rx.Observable.Operator;
-import rx.Observer;
 import rx.Subscriber;
-import rx.exceptions.OnErrorThrowable;
-import rx.functions.Func2;
-import rx.functions.Func3;
-import rx.functions.Func4;
-import rx.functions.Func5;
-import rx.functions.Func6;
-import rx.functions.Func7;
-import rx.functions.Func8;
-import rx.functions.Func9;
 import rx.functions.FuncN;
-import rx.functions.Functions;
 import rx.subscriptions.CompositeSubscription;
 
-/**
- * Returns an Observable that emits the results of a function applied to sets of items emitted, in
- * sequence, by two or more other Observables.
- * <p>
- * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-operators/zip.png">
- * <p>
- * The zip operation applies this function in strict sequence, so the first item emitted by the new
- * Observable will be the result of the function applied to the first item emitted by each zipped
- * Observable; the second item emitted by the new Observable will be the result of the function
- * applied to the second item emitted by each zipped Observable; and so forth.
- * <p>
- * The resulting Observable returned from zip will invoke <code>onNext</code> as many times as the
- * number of <code>onNext</code> invocations of the source Observable that emits the fewest items.
- */
-public final class OperatorZip<R> implements Operator<R, Observable<?>[]> {
-    /*
-     * Raw types are used so we can use a single implementation for all arities such as zip(t1, t2) and zip(t1, t2, t3) etc.
-     * The types will be cast on the edges so usage will be the type-safe but the internals are not.
-     */
+public final class OperatorZip<R> implements Operator<R, Observable<?>> {
+    private final FuncN<? extends R> zipFunc;
 
-    final FuncN<? extends R> zipFunction;
-
-    public OperatorZip(FuncN<? extends R> f) {
-        this.zipFunction = f;
+    public OperatorZip(FuncN<? extends R> zipFunction) {
+        this.zipFunc = zipFunction;
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func2 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func3 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func4 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func5 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func6 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func7 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func8 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public OperatorZip(Func9 f) {
-        this.zipFunction = Functions.fromFunc(f);
-    }
-
-    @SuppressWarnings("rawtypes")
     @Override
-    public Subscriber<? super Observable[]> call(final Subscriber<? super R> observer) {
-        return new Subscriber<Observable[]>(observer) {
+    public Subscriber<? super Observable<?>> call(final Subscriber<? super R> out) {
+        final CompositeSubscription innerSubscriptions = new CompositeSubscription();
+        // if the outter is unsubscribed add it so that it can propagate it to the inner
+        out.add(innerSubscriptions);
 
-            boolean started = false;
-
-            @Override
-            public void onCompleted() {
-                if (!started) {
-                    // this means we have not received a valid onNext before termination so we emit the onCompleted
-                    observer.onCompleted();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                observer.onError(e);
-            }
-
-            @Override
-            public void onNext(Observable[] observables) {
-                if (observables == null || observables.length == 0) {
-                    observer.onCompleted();
-                } else {
-                    started = true;
-                    new Zip<R>(observables, observer, zipFunction).zip();
-                }
-            }
-
-        };
-    }
-
-    private static class Zip<R> {
-        @SuppressWarnings("rawtypes")
-        final Observable[] os;
-        final Object[] observers;
-        final Observer<? super R> observer;
-        final FuncN<? extends R> zipFunction;
-        final CompositeSubscription childSubscription = new CompositeSubscription();
-
-        static Object NULL_SENTINEL = new Object();
-        static Object COMPLETE_SENTINEL = new Object();
-
-        @SuppressWarnings("rawtypes")
-        public Zip(Observable[] os, final Subscriber<? super R> observer, FuncN<? extends R> zipFunction) {
-            this.os = os;
-            this.observer = observer;
-            this.zipFunction = zipFunction;
-            observers = new Object[os.length];
-            for (int i = 0; i < os.length; i++) {
-                InnerObserver io = new InnerObserver();
-                observers[i] = io;
-                childSubscription.add(io);
-            }
-
-            observer.add(childSubscription);
-        }
-
-        @SuppressWarnings("unchecked")
-        public void zip() {
-            for (int i = 0; i < os.length; i++) {
-                os[i].subscribe((InnerObserver) observers[i]);
-            }
-        }
-
-        final AtomicLong counter = new AtomicLong(0);
-
-        /**
-         * check if we have values for each and emit if we do
-         * 
-         * This will only allow one thread at a time to do the work, but ensures via `counter` increment/decrement
-         * that there is always once who acts on each `tick`. Same concept as used in OperationObserveOn.
-         * 
-         */
-        @SuppressWarnings("unchecked")
-        void tick() {
-            if (counter.getAndIncrement() == 0) {
-                do {
-                    Object[] vs = new Object[observers.length];
-                    boolean allHaveValues = true;
-                    for (int i = 0; i < observers.length; i++) {
-                        vs[i] = ((InnerObserver) observers[i]).items.peek();
-                        if (vs[i] == NULL_SENTINEL) {
-                            // special handling for null
-                            vs[i] = null;
-                        } else if (vs[i] == COMPLETE_SENTINEL) {
-                            // special handling for onComplete
-                            observer.onCompleted();
-                            // we need to unsubscribe from all children since children are independently subscribed
-                            childSubscription.unsubscribe();
-                            return;
-                        } else if (vs[i] == null) {
-                            allHaveValues = false;
-                            // we continue as there may be an onCompleted on one of the others
-                            continue;
-                        }
-                    }
-                    if (allHaveValues) {
-                        try {
-                            // all have something so emit
-                            observer.onNext(zipFunction.call(vs));
-                        } catch (Throwable e) {
-                            observer.onError(OnErrorThrowable.addValueAsLastCause(e, vs));
-                            return;
-                        }
-                        // now remove them
-                        for (int i = 0; i < observers.length; i++) {
-                            ((InnerObserver) observers[i]).items.poll();
-                            // eagerly check if the next item on this queue is an onComplete
-                            if (((InnerObserver) observers[i]).items.peek() == COMPLETE_SENTINEL) {
-                                // it is an onComplete so shut down
-                                observer.onCompleted();
-                                // we need to unsubscribe from all children since children are independently subscribed
-                                childSubscription.unsubscribe();
-                                return;
-                            }
-                        }
-                    }
-                } while (counter.decrementAndGet() > 0);
-            }
-
-        }
-
-        // used to observe each Observable we are zipping together
-        // it collects all items in an internal queue
-        @SuppressWarnings("rawtypes")
-        final class InnerObserver extends Subscriber {
-            // Concurrent* since we need to read it from across threads
-            final ConcurrentLinkedQueue items = new ConcurrentLinkedQueue();
-
-            @SuppressWarnings("unchecked")
-            @Override
-            public void onCompleted() {
-                items.add(COMPLETE_SENTINEL);
-                tick();
-            }
+        final Subscriber<Observable<?>> outerSubscriber = new Subscriber<Observable<?>>(out) {
+            /** the number of Inner observables not the final value until startUpMode is false */
+            private AtomicInteger width = new AtomicInteger();
+            /**
+             * true until we get the onCompleted to the outer subscriber and we know the actual
+             * width of river
+             */
+            private final AtomicBoolean startUpMode = new AtomicBoolean(true);
+            private final AtomicBoolean done = new AtomicBoolean(false);
+            private final ConcurrentHashMap<Integer, Object> values = new ConcurrentHashMap<Integer, Object>();
+            private final AtomicInteger count = new AtomicInteger();
+            private final List<Inner> innerSubscribers = new ArrayList<Inner>();
 
             @Override
             public void onError(Throwable e) {
-                // emit error and shut down
-                observer.onError(e);
+                if (done.compareAndSet(false, true) && !isUnsubscribed())
+                    out.onError(e);
             }
 
-            @SuppressWarnings("unchecked")
             @Override
-            public void onNext(Object t) {
-                if (t == null) {
-                    items.add(NULL_SENTINEL);
-                } else {
-                    items.add(t);
+            public void onCompleted() {
+                if (startUpMode.compareAndSet(true, false)) {
+                    if (width.get() == 0) {
+                        out.onCompleted();
+                        return;
+                    }
+
+                    // start all of the inner observers
+                    for (Inner inner : innerSubscribers) {
+                        inner.resume();
+                    }
                 }
-                tick();
+            }
+
+            @Override
+            public void onNext(Observable<?> inner) {
+                final Inner innerSubscriber = new Inner(width.getAndIncrement());
+                innerSubscribers.add(innerSubscriber);
+                // when one inner subscriber gets an onComplete this allows the unsubscription from
+                // the others. when unsubscribing from the inner propagate that to the outer.
+                innerSubscriptions.add(innerSubscriber);
+                innerSubscriber.pause();
+                inner.subscribe(innerSubscriber);
+            }
+
+            class Inner extends Subscriber<Object> {
+                private final int index;
+
+                // constructor to make it clear that the index is set on creation from the outer
+                // onNext
+                private Inner(int index) {
+                    super();
+                    this.index = index;
+                }
+
+                @Override
+                public void onCompleted() {
+                    if (done.compareAndSet(false, true) && !isUnsubscribed()) {
+                        out.onCompleted();
+                        innerSubscriptions.unsubscribe();
+                    }
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    if (done.compareAndSet(false, true) && !isUnsubscribed()) {
+                        out.onError(e);
+                        innerSubscriptions.unsubscribe();
+                    }
+                }
+
+                @Override
+                public void onNext(Object value) {
+                    Object oldValue = values.putIfAbsent(index, value == null ? NULL : value);
+                    if (oldValue != null) {
+                        // TODO handle misbehaving observables
+                        out.onError(new IllegalStateException("one of the observables didn't pause"));
+                    }
+
+                    // check to see if we have enough data to call the downstream onNext
+                    int c = count.incrementAndGet();
+                    if (c == width.get()) {
+                        Object[] args = new Object[width.get()];
+                        for (Entry<Integer, Object> arg : values.entrySet()) {
+                            args[arg.getKey()] = arg.getValue() == NULL ? null : arg.getValue();
+                        }
+                        values.clear();
+                        R result = zipFunc.call(args);
+                        out.onNext(result);
+                        count.set(0);
+
+                        // restart all of the inner subscribers again.
+                        for (Inner inner : innerSubscribers) {
+                            inner.resume();
+                        }
+                    }
+                    else {
+                        pause();
+                    }
+                }
+
+                @Override
+                public void resume() {
+                    super.resume();
+                }
             }
         };
+        return outerSubscriber;
     }
 
+    private static final Object NULL = new Object();
 }

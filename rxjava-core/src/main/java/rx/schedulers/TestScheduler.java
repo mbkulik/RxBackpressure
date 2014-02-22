@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import rx.Scheduler;
 import rx.Subscription;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.subscriptions.BooleanSubscription;
 
@@ -115,7 +116,7 @@ public class TestScheduler extends Scheduler {
 
     private final class InnerTestScheduler extends Inner {
 
-        private BooleanSubscription s = new BooleanSubscription();
+        private BooleanSubscription s = BooleanSubscription.create();
 
         @Override
         public void unsubscribe() {
@@ -125,6 +126,21 @@ public class TestScheduler extends Scheduler {
         @Override
         public boolean isUnsubscribed() {
             return s.isUnsubscribed();
+        }
+        
+        @Override
+        public void pause() {
+            s.pause();
+        }
+        
+        @Override
+        public boolean isPaused() {
+            return s.isPaused();
+        }
+        
+        @Override
+        public void resumeWith(Action0 resume) {
+            s.resumeWith(resume);
         }
 
         @Override

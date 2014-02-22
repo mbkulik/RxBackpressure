@@ -24,8 +24,6 @@ import org.junit.Test;
 import rx.CovarianceTest.HorrorMovie;
 import rx.CovarianceTest.Media;
 import rx.CovarianceTest.Movie;
-import rx.Observable.OnSubscribe;
-import rx.subscriptions.Subscriptions;
 
 public class MergeTests {
 
@@ -35,7 +33,7 @@ public class MergeTests {
     @Test
     public void testCovarianceOfMerge() {
         Observable<HorrorMovie> horrors = Observable.from(new HorrorMovie());
-        Observable<Observable<HorrorMovie>> metaHorrors = Observable.just(horrors);
+        Observable<Observable<HorrorMovie>> metaHorrors = Observable.from(horrors);
         Observable.<Media> merge(metaHorrors);
     }
 

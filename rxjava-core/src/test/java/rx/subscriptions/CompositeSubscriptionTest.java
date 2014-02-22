@@ -24,8 +24,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
+import rx.Observable;
+import rx.Observable.Operator;
+import rx.Subscriber;
 import rx.Subscription;
 import rx.exceptions.CompositeException;
+import rx.functions.Action0;
 
 public class CompositeSubscriptionTest {
 
@@ -33,31 +37,19 @@ public class CompositeSubscriptionTest {
     public void testSuccess() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(new Subscription() {
-
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
+        }));
 
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
-
-        s.add(new Subscription() {
-
-            @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
+        }));
 
         s.unsubscribe();
 
@@ -72,18 +64,12 @@ public class CompositeSubscriptionTest {
         final int count = 10;
         final CountDownLatch start = new CountDownLatch(1);
         for (int i = 0; i < count; i++) {
-            s.add(new Subscription() {
-
+            s.add(BooleanSubscription.create(new Action0() {
                 @Override
-                public void unsubscribe() {
+                public void call() {
                     counter.incrementAndGet();
                 }
-
-                @Override
-                public boolean isUnsubscribed() {
-                    return false;
-                }
-            });
+            }));
         }
 
         final List<Thread> threads = new ArrayList<Thread>();
@@ -115,31 +101,19 @@ public class CompositeSubscriptionTest {
     public void testException() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(new Subscription() {
-
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 throw new RuntimeException("failed on first one");
             }
+        }));
 
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
-
-        s.add(new Subscription() {
-
-            @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
+        }));
 
         try {
             s.unsubscribe();
@@ -157,44 +131,26 @@ public class CompositeSubscriptionTest {
     public void testCompositeException() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(new Subscription() {
-
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 throw new RuntimeException("failed on first one");
             }
+        }));
 
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
-
-        s.add(new Subscription() {
-
-            @Override
-            public void unsubscribe() {
+            public void call() {
                 throw new RuntimeException("failed on second one too");
             }
+        }));
 
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
-
-        s.add(new Subscription() {
-
-            @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
+        }));
 
         try {
             s.unsubscribe();
@@ -210,8 +166,8 @@ public class CompositeSubscriptionTest {
 
     @Test
     public void testRemoveUnsubscribes() {
-        BooleanSubscription s1 = new BooleanSubscription();
-        BooleanSubscription s2 = new BooleanSubscription();
+        BooleanSubscription s1 = BooleanSubscription.create();
+        BooleanSubscription s2 = BooleanSubscription.create();
 
         CompositeSubscription s = new CompositeSubscription();
         s.add(s1);
@@ -225,8 +181,8 @@ public class CompositeSubscriptionTest {
 
     @Test
     public void testClear() {
-        BooleanSubscription s1 = new BooleanSubscription();
-        BooleanSubscription s2 = new BooleanSubscription();
+        BooleanSubscription s1 = BooleanSubscription.create();
+        BooleanSubscription s2 = BooleanSubscription.create();
 
         CompositeSubscription s = new CompositeSubscription();
         s.add(s1);
@@ -241,7 +197,7 @@ public class CompositeSubscriptionTest {
         assertTrue(s2.isUnsubscribed());
         assertFalse(s.isUnsubscribed());
 
-        BooleanSubscription s3 = new BooleanSubscription();
+        BooleanSubscription s3 = BooleanSubscription.create();
 
         s.add(s3);
         s.unsubscribe();
@@ -254,18 +210,12 @@ public class CompositeSubscriptionTest {
     public void testUnsubscribeIdempotence() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(new Subscription() {
-
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
+        }));
 
         s.unsubscribe();
         s.unsubscribe();
@@ -283,18 +233,12 @@ public class CompositeSubscriptionTest {
 
         final int count = 10;
         final CountDownLatch start = new CountDownLatch(1);
-        s.add(new Subscription() {
-
+        s.add(BooleanSubscription.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 counter.incrementAndGet();
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return false;
-            }
-        });
+        }));
 
         final List<Thread> threads = new ArrayList<Thread>();
         for (int i = 0; i < count; i++) {
@@ -320,5 +264,57 @@ public class CompositeSubscriptionTest {
 
         // we should have only unsubscribed once
         assertEquals(1, counter.get());
+    }
+    
+    @Test
+    public void testPauseCompability() {
+        final AtomicInteger completedCount = new AtomicInteger();
+        Observable<Integer> src = Observable.empty();
+        Observable<Integer> mid = src.lift(new Operator<Integer, Integer>() {
+            @Override
+            public Subscriber<? super Integer> call(final Subscriber<? super Integer> out) {
+                return new Subscriber<Integer>(out) {
+                    @Override
+                    public void onCompleted() {
+                        completedCount.incrementAndGet();
+                        out.onCompleted();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        out.onError(e);
+                    }
+
+                    @Override
+                    public void onNext(Integer t) {
+                        out.onNext(t);
+                    }
+                };
+            }
+        });
+        class EndSubscriber extends Subscriber<Integer> {
+            @Override
+            public void onCompleted() {
+                completedCount.incrementAndGet();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+            }
+
+            @Override
+            public void onNext(Integer t) {
+            }
+
+            public void resume() {
+                super.resume();
+            }
+        }
+        final EndSubscriber endSubscriber = new EndSubscriber();
+        endSubscriber.pause();
+        mid.subscribe(endSubscriber);
+        assertEquals(0, completedCount.get());
+        endSubscriber.resume();
+        assertEquals(2, completedCount.get());
     }
 }
