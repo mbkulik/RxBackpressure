@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import rx.Observable;
 import rx.schedulers.Schedulers;
 
-public class ObservableFromIterable {
+public class ColdIterableSourceOverThread {
 
     public static void main(String[] args) {
 
