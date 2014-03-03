@@ -9,8 +9,9 @@ public class ColdIterableSourceOverThread {
 
     public static void main(String[] args) {
 
-        ArrayList<Integer> MILLION = new ArrayList<Integer>(1000000);
-        for (int i = 0; i < MILLION.size(); i++) {
+        int SIZE = 1000000;
+        ArrayList<Integer> MILLION = new ArrayList<Integer>(SIZE);
+        for (int i = 0; i < SIZE; i++) {
             MILLION.add(i);
         }
 
