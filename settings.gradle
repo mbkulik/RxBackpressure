@@ -1,2 +1,2 @@
 rootProject.name='rx-back-pressure-experiments'
-include 'rxjava-prototype','examples'
+include 'rx-bp-prototype','rx-bp-examples'

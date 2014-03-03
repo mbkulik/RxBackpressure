@@ -21,22 +21,7 @@ apply from: file('gradle/maven.gradle')
 
 subprojects {
     group = "io.reactivex.experiment" 
+    apply plugin: 'eclipse'
 
-    dependencies {
 
-    }
-}
-
-project(':rxjava-prototype') {
-    apply plugin: 'java'
-    dependencies {
-
-    }
-}
-
-project(':examples') {
-    apply plugin: 'java'
-    dependencies {
-        compile project(':rxjava-prototype')
-    }
 }
