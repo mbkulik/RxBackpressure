@@ -16,10 +16,8 @@
 package rx.observables;
 
 import java.util.Iterator;
-import java.util.Spliterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import rx.Observable;
 import rx.Subscriber;
@@ -246,15 +244,6 @@ public class BlockingObservable<T> {
             @Override
             public Iterator<T> iterator() {
                 return getIterator();
-            }
-            
-            @Override
-            public Spliterator<T> spliterator() {
-                return null;
-            }
-
-            @Override
-            public void forEach(Consumer<? super T> action) {
             }
         };
     }

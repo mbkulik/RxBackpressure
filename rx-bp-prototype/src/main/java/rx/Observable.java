@@ -233,17 +233,17 @@ public class Observable<T> {
         return create(OperationThrottleFirst.throttleFirst(this, windowDuration, unit));
     }
 
-    public final static <T1, T2, R> Observable<R> combineLatest(Observable<? extends T1> o1, Observable<? extends T2> o2, Func2<? super T1, ? super T2, ? extends R> combineFunction) {
-        return create(OperationCombineLatest.combineLatest(o1, o2, combineFunction));
-    }
+//    public final static <T1, T2, R> Observable<R> combineLatest(Observable<? extends T1> o1, Observable<? extends T2> o2, Func2<? super T1, ? super T2, ? extends R> combineFunction) {
+//        return create(OperationCombineLatest.combineLatest(o1, o2, combineFunction));
+//    }
 
     public final static Observable<Long> interval(long interval, TimeUnit unit) {
         return create(OperationInterval.interval(interval, unit));
     }
-
-    public final static <T> Observable<T> concat(Observable<? extends T> t1, Observable<? extends T> t2) {
-        return create(OperationConcat.concat(t1, t2));
-    }
+//
+//    public final static <T> Observable<T> concat(Observable<? extends T> t1, Observable<? extends T> t2) {
+//        return create(OperationConcat.concat(t1, t2));
+//    }
     
     public final Observable<T> filter(Func1<? super T, Boolean> predicate) {
         return lift(new OperatorFilter<T>(predicate));

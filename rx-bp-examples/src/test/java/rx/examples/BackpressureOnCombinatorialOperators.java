@@ -190,24 +190,24 @@ public class BackpressureOnCombinatorialOperators {
         });
     }
 
-    @Test
-    public void testConcatFastAndSlow() {
-        performCombine((o1, o2) -> {
-            return Observable.concat(o1, o2);
-        });
-    }
+//    @Test
+//    public void testConcatFastAndSlow() {
+//        performCombine((o1, o2) -> {
+//            return Observable.concat(o1, o2);
+//        });
+//    }
 
-    /**
-     * Fails as of RxJava 0.17.0 RC6
-     */
-    @Test
-    public void testCombineLatestFastAndSlow() {
-        performCombine((o1, o2) -> {
-            return Observable.combineLatest(o1, o2, (t1, t2) -> {
-                return t1 + t2;
-            });
-        });
-    }
+//    /**
+//     * Fails as of RxJava 0.17.0 RC6
+//     */
+//    @Test
+//    public void testCombineLatestFastAndSlow() {
+//        performCombine((o1, o2) -> {
+//            return Observable.combineLatest(o1, o2, (t1, t2) -> {
+//                return t1 + t2;
+//            });
+//        });
+//    }
 
     private void performCombine(Func2<Observable<Long>, Observable<Long>, Observable<Long>> f) {
         final AtomicInteger o1SentCount = new AtomicInteger();
