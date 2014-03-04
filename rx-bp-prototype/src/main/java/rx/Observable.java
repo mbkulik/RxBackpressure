@@ -38,8 +38,6 @@ import rx.observables.BlockingObservable;
 import rx.observables.GroupedObservable;
 import rx.observers.SafeSubscriber;
 import rx.operators.OnSubscribeFromIterable;
-import rx.operators.OperationCombineLatest;
-import rx.operators.OperationConcat;
 import rx.operators.OperationInterval;
 import rx.operators.OperationSkip;
 import rx.operators.OperationThrottleFirst;
@@ -119,34 +117,38 @@ public class Observable<T> {
      */
     public final static <T> Observable<T> create(final OnSubscribe<T> f) {
         return new Observable<T>(new OnSubscribe<T>() {
-
             @Override
-            public void call(final Subscriber<? super T> o) {
-                f.call(new Subscriber<T>() {
-                    @Override
-                    public void onCompleted() {
-                        if (isUnsubscribed())
-                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
-                        if (isPaused())
-                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
-                        o.onCompleted();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        o.onError(e);
-                    }
-
-                    @Override
-                    public void onNext(T t) {
-                        if (isUnsubscribed())
-                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
-                        if (isPaused())
-                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
-                        o.onNext(t);
-                    }
-                });
+            public void call(Subscriber<? super T> o) {
+                f.call(o);
             }
+
+//            @Override
+//            public void call(final Subscriber<? super T> o) {
+//                f.call(new Subscriber<T>(o) {
+//                    @Override
+//                    public void onCompleted() {
+//                        if (isUnsubscribed())
+//                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
+//                        if (isPaused())
+//                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
+//                        o.onCompleted();
+//                    }
+//
+//                    @Override
+//                    public void onError(Throwable e) {
+//                        o.onError(e);
+//                    }
+//
+//                    @Override
+//                    public void onNext(T t) {
+//                        if (isUnsubscribed())
+//                            onError(new IllegalStateException("Yo this subscriber wanted you to unsubscribe"));
+//                        if (isPaused())
+//                            onError(new IllegalStateException("Yo this subscriber wanted you to pause"));
+//                        o.onNext(t);
+//                    }
+//                });
+//            }
         });
     }
 

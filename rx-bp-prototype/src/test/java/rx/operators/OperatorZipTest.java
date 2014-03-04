@@ -1067,7 +1067,7 @@ public class OperatorZipTest {
             }
             o.onCompleted();
         }
-    }).whilePausedBuffer();
+    });
 
     Observable<Integer> ASYNC_OBSERVABLE_OF_INFINITE_INTEGERS(final CountDownLatch latch) {
         return Observable.create(new OnSubscribe<Integer>() {
@@ -1094,6 +1094,6 @@ public class OperatorZipTest {
 
             }
 
-        }).whilePausedBuffer();
+        });
     }
 }
