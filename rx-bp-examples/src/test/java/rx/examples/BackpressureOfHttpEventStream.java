@@ -20,6 +20,9 @@ import rx.schedulers.Schedulers;
 
 public class BackpressureOfHttpEventStream {
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testIterableOverNetwork() throws InterruptedException {
         final AtomicInteger sentCount = new AtomicInteger();
@@ -57,6 +60,9 @@ public class BackpressureOfHttpEventStream {
 
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testIterableOverNetworkThenAcrossThread() throws InterruptedException {
         final AtomicInteger sentCount = new AtomicInteger();

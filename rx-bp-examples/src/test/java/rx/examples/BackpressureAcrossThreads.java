@@ -12,6 +12,9 @@ import rx.schedulers.Schedulers;
 
 public class BackpressureAcrossThreads {
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testIterableAcrossThread() {
         final AtomicInteger sentCount = new AtomicInteger();
@@ -37,6 +40,9 @@ public class BackpressureAcrossThreads {
         }
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testFileAcrossThread() {
         final AtomicInteger sentCount = new AtomicInteger();

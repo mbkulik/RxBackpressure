@@ -45,6 +45,9 @@ public class BackpressureOnCombinatorialOperators {
         zipAndAssert(o1SentCount, o2SentCount, receivedCount, o1, o2);
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test(timeout = 1000)
     public void testZipInfiniteAtBeginning() {
         final AtomicInteger o1SentCount = new AtomicInteger();
@@ -75,6 +78,9 @@ public class BackpressureOnCombinatorialOperators {
         zipAndAssert(o1SentCount, o2SentCount, receivedCount, o1, o2);
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testZipLargeAtBeginning() {
         final AtomicInteger o1SentCount = new AtomicInteger();
@@ -90,6 +96,9 @@ public class BackpressureOnCombinatorialOperators {
         zipAndAssert(o1SentCount, o2SentCount, receivedCount, o1, o2);
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testZipLargeAtBeginningAsync() {
         final AtomicInteger o1SentCount = new AtomicInteger();
@@ -135,6 +144,9 @@ public class BackpressureOnCombinatorialOperators {
         zipAndAssert(o1SentCount, o2SentCount, receivedCount, o1, o2);
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testZipFastAndSlowAsync() {
         final AtomicInteger o1SentCount = new AtomicInteger();
@@ -168,6 +180,9 @@ public class BackpressureOnCombinatorialOperators {
         }
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testMergeFastAndSlow() {
         performCombine((o1, o2) -> {
@@ -182,6 +197,9 @@ public class BackpressureOnCombinatorialOperators {
         });
     }
 
+    /**
+     * Fails as of RxJava 0.17.0 RC6
+     */
     @Test
     public void testCombineLatestFastAndSlow() {
         performCombine((o1, o2) -> {
