@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 
 import rx.Notification;
 import rx.Observable;
@@ -98,6 +99,12 @@ public class OperationToIterator {
             @Override
             public void remove() {
                 throw new UnsupportedOperationException("Read-only iterator");
+            }
+
+            @Override
+            public void forEachRemaining(Consumer<? super T> action) {
+                // TODO Auto-generated method stub
+                
             }
         };
     }

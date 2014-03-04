@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import rx.exceptions.Exceptions;
 import rx.exceptions.OnErrorNotImplementedException;
@@ -33,12 +34,18 @@ import rx.functions.Func8;
 import rx.functions.Func9;
 import rx.functions.FuncN;
 import rx.functions.Function;
-import rx.functions.Functions;
 import rx.observables.BlockingObservable;
 import rx.observables.GroupedObservable;
 import rx.observers.SafeSubscriber;
 import rx.operators.OnSubscribeFromIterable;
+import rx.operators.OperationCombineLatest;
+import rx.operators.OperationConcat;
+import rx.operators.OperationInterval;
+import rx.operators.OperationSkip;
+import rx.operators.OperationThrottleFirst;
 import rx.operators.OperatorDematerialize;
+import rx.operators.OperatorDoOnEach;
+import rx.operators.OperatorFilter;
 import rx.operators.OperatorGroupBy;
 import rx.operators.OperatorLast;
 import rx.operators.OperatorMap;
@@ -85,7 +92,7 @@ public class Observable<T> {
     protected Observable(OnSubscribe<T> f) {
         this.f = f;
     }
-
+    
     /**
      * Returns an Observable that will execute the specified function when a {@link Subscriber} subscribes to
      * it.
@@ -221,6 +228,34 @@ public class Observable<T> {
      * Observers Below Here
      * *********************************************************************************************************
      */
+    
+    public final Observable<T> throttleFirst(long windowDuration, TimeUnit unit) {
+        return create(OperationThrottleFirst.throttleFirst(this, windowDuration, unit));
+    }
+
+    public final static <T1, T2, R> Observable<R> combineLatest(Observable<? extends T1> o1, Observable<? extends T2> o2, Func2<? super T1, ? super T2, ? extends R> combineFunction) {
+        return create(OperationCombineLatest.combineLatest(o1, o2, combineFunction));
+    }
+
+    public final static Observable<Long> interval(long interval, TimeUnit unit) {
+        return create(OperationInterval.interval(interval, unit));
+    }
+
+    public final static <T> Observable<T> concat(Observable<? extends T> t1, Observable<? extends T> t2) {
+        return create(OperationConcat.concat(t1, t2));
+    }
+    
+    public final Observable<T> filter(Func1<? super T, Boolean> predicate) {
+        return lift(new OperatorFilter<T>(predicate));
+    }
+
+    public final Observable<T> skip(int num) {
+        return create(OperationSkip.skip(this, num));
+    }
+    
+    public final static <T> Observable<T> just(T value) {
+        return from(Arrays.asList(value));
+    }
 
     /**
      * Returns an Observable that emits no items to the {@link Observer} and immediately invokes its {@link Observer#onCompleted onCompleted} method.
@@ -253,6 +288,28 @@ public class Observable<T> {
      */
     public final static <T> Observable<T> empty(Scheduler scheduler) {
         return Observable.<T> empty().subscribeOn(scheduler);
+    }
+
+    public final Observable<T> doOnEach(final Action1<Notification<? super T>> onNotification) {
+        Observer<T> observer = new Observer<T>() {
+            @Override
+            public final void onCompleted() {
+                onNotification.call(Notification.createOnCompleted());
+            }
+
+            @Override
+            public final void onError(Throwable e) {
+                onNotification.call(Notification.createOnError(e));
+            }
+
+            @Override
+            public final void onNext(T v) {
+                onNotification.call(Notification.createOnNext(v));
+            }
+
+        };
+
+        return lift(new OperatorDoOnEach<T>(observer));
     }
 
     /**
@@ -733,7 +790,8 @@ public class Observable<T> {
     /**
      * Returns an Observable that emits the results of a function of your choosing applied to combinations of
      * items emitted, in sequence, by an Iterable of other Observables.
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each of the source Observables;
      * the second item emitted by the new Observable will be the result of the function applied to the second
      * item emitted by each of those Observables; and so forth.
@@ -752,13 +810,18 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <R> Observable<R> zip(Iterable<? extends Observable<?>> ws, FuncN<? extends R> zipFunction) {
-        return Observable.from(ws).lift(new OperatorZip<R>(zipFunction));
+        List<Observable<?>> os = new ArrayList<Observable<?>>();
+        for (Observable<?> o : ws) {
+            os.add(o);
+        }
+        return Observable.just(os.toArray(new Observable<?>[os.size()])).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
      * Returns an Observable that emits the results of a function of your choosing applied to combinations of
      * <i>n</i> items emitted, in sequence, by the <i>n</i> Observables emitted by a specified Observable.
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each of the Observables emitted
      * by the source Observable; the second item emitted by the new Observable will be the result of the
      * function applied to the second item emitted by each of those Observables; and so forth.
@@ -771,12 +834,20 @@ public class Observable<T> {
      * @param ws
      *            an Observable of source Observables
      * @param zipFunction
-     *            a function that, when applied to an item emitted by each of the Observables emitted by {@code ws}, results in an item that will be emitted by the resulting Observable
+     *            a function that, when applied to an item emitted by each of the Observables emitted by
+     *            {@code ws}, results in an item that will be emitted by the resulting Observable
      * @return an Observable that emits the zipped results
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <R> Observable<R> zip(Observable<? extends Observable<?>> ws, final FuncN<? extends R> zipFunction) {
-        return ws.lift(new OperatorZip<R>(zipFunction));
+        return ws.toList().map(new Func1<List<? extends Observable<?>>, Observable<?>[]>() {
+
+            @Override
+            public Observable<?>[] call(List<? extends Observable<?>> o) {
+                return o.toArray(new Observable<?>[o.size()]);
+            }
+
+        }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -784,13 +855,14 @@ public class Observable<T> {
      * two items emitted, in sequence, by two other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by {@code o1} and the first item
      * emitted by {@code o2}; the second item emitted by the new Observable will be the result of the function
      * applied to the second item emitted by {@code o1} and the second item emitted by {@code o2}; and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -804,7 +876,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, final Func2<? super T1, ? super T2, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -812,14 +884,15 @@ public class Observable<T> {
      * three items emitted, in sequence, by three other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by {@code o1}, the first item
      * emitted by {@code o2}, and the first item emitted by {@code o3}; the second item emitted by the new
      * Observable will be the result of the function applied to the second item emitted by {@code o1}, the
      * second item emitted by {@code o2}, and the second item emitted by {@code o3}; and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -835,7 +908,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Func3<? super T1, ? super T2, ? super T3, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -843,14 +916,15 @@ public class Observable<T> {
      * four items emitted, in sequence, by four other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by {@code o1}, the first item
      * emitted by {@code o2}, the first item emitted by {@code o3}, and the first item emitted by {@code 04};
      * the second item emitted by the new Observable will be the result of the function applied to the second
      * item emitted by each of those Observables; and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -868,7 +942,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, T4, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Func4<? super T1, ? super T2, ? super T3, ? super T4, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -876,14 +950,15 @@ public class Observable<T> {
      * five items emitted, in sequence, by five other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by {@code o1}, the first item
      * emitted by {@code o2}, the first item emitted by {@code o3}, the first item emitted by {@code o4}, and
      * the first item emitted by {@code o5}; the second item emitted by the new Observable will be the result of
      * the function applied to the second item emitted by each of those Observables; and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -903,7 +978,7 @@ public class Observable<T> {
      * @see <a href="https://github.com/Netflix/RxJava/wiki/Combining-Observables#wiki-zip">RxJava Wiki: zip()</a>
      */
     public final static <T1, T2, T3, T4, T5, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Func5<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4, o5)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4, o5 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -911,13 +986,14 @@ public class Observable<T> {
      * six items emitted, in sequence, by six other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each source Observable, the
      * second item emitted by the new Observable will be the result of the function applied to the second item
      * emitted by each of those Observables, and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -940,7 +1016,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6,
             Func6<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4, o5, o6)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -948,13 +1024,14 @@ public class Observable<T> {
      * seven items emitted, in sequence, by seven other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each source Observable, the
      * second item emitted by the new Observable will be the result of the function applied to the second item
      * emitted by each of those Observables, and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -979,7 +1056,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7,
             Func7<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -987,13 +1064,14 @@ public class Observable<T> {
      * eight items emitted, in sequence, by eight other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each source Observable, the
      * second item emitted by the new Observable will be the result of the function applied to the second item
      * emitted by each of those Observables, and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -1020,7 +1098,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, T8, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7, Observable<? extends T8> o8,
             Func8<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? super T8, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7, o8)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7, o8 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
@@ -1028,13 +1106,14 @@ public class Observable<T> {
      * nine items emitted, in sequence, by nine other Observables.
      * <p>
      * <img width="640" src="https://raw.github.com/wiki/Netflix/RxJava/images/rx-operators/zip.png">
-     * <p> {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
+     * <p>
+     * {@code zip} applies this function in strict sequence, so the first item emitted by the new Observable
      * will be the result of the function applied to the first item emitted by each source Observable, the
      * second item emitted by the new Observable will be the result of the function applied to the second item
      * emitted by each of those Observables, and so forth.
      * <p>
-     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext} as many times as the number of {@code onNext} invocations of the source Observable that
-     * emits the fewest
+     * The resulting {@code Observable<R>} returned from {@code zip} will invoke {@link Observer#onNext onNext}
+     * as many times as the number of {@code onNext} invocations of the source Observable that emits the fewest
      * items.
      * 
      * @param o1
@@ -1063,7 +1142,7 @@ public class Observable<T> {
      */
     public final static <T1, T2, T3, T4, T5, T6, T7, T8, T9, R> Observable<R> zip(Observable<? extends T1> o1, Observable<? extends T2> o2, Observable<? extends T3> o3, Observable<? extends T4> o4, Observable<? extends T5> o5, Observable<? extends T6> o6, Observable<? extends T7> o7, Observable<? extends T8> o8,
             Observable<? extends T9> o9, Func9<? super T1, ? super T2, ? super T3, ? super T4, ? super T5, ? super T6, ? super T7, ? super T8, ? super T9, ? extends R> zipFunction) {
-        return from(Arrays.asList(o1, o2, o3, o4, o5, o6, o7, o8, o9)).lift(new OperatorZip<R>(Functions.fromFunc(zipFunction)));
+        return just(new Observable<?>[] { o1, o2, o3, o4, o5, o6, o7, o8, o9 }).lift(new OperatorZip<R>(zipFunction));
     }
 
     /**
