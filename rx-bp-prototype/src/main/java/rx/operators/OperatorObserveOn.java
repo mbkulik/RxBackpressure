@@ -15,6 +15,7 @@
  */
 package rx.operators;
 
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -75,12 +76,13 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         final Subscriber<? super T> observer;
         private volatile Scheduler.Inner recursiveScheduler;
 
-        private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+        private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(2);
         final AtomicLong counter = new AtomicLong(0);
 
         public ObserveOnSubscriber(Subscriber<? super T> observer) {
             super(observer);
             this.observer = observer;
+            request(2);
         }
 
         @Override
@@ -106,7 +108,10 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         }
 
         protected void schedule() {
-            if (counter.getAndIncrement() == 0) {
+            long c = counter.getAndIncrement();
+            if (c+1 == 2)
+                request(0);
+            if (c == 0) {
                 if (recursiveScheduler == null) {
                     add(scheduler.schedule(new Action1<Inner>() {
 
@@ -132,6 +137,7 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
 
         @SuppressWarnings("unchecked")
         private void pollQueue() {
+            long c = counter.get();
             do {
                 Object v = queue.poll();
                 if (v != null) {
@@ -146,8 +152,11 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
                     } else {
                         observer.onNext((T) v);
                     }
+                    if (c <= 1) {
+                        request(1);
+                    }
                 }
-            } while (counter.decrementAndGet() > 0);
+            } while ((c = counter.decrementAndGet()) > 0 && !observer.isUnsubscribed());
         }
 
     }

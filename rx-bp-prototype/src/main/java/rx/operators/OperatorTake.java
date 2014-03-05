@@ -17,7 +17,7 @@ package rx.operators;
 
 import rx.Observable.Operator;
 import rx.Subscriber;
-import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
 
 /**
@@ -82,9 +82,9 @@ public final class OperatorTake<T> implements Operator<T, T> {
                     if (++count >= limit) {
                         completed = true;
                         if (child.isPaused()) {
-                            child.resumeWith(new Action0() {
+                            child.setProducer(new Action1<Integer>() {
                                 @Override
-                                public void call() {
+                                public void call(Integer n) {
                                     child.onCompleted();
                                 }
                             });
@@ -94,19 +94,6 @@ public final class OperatorTake<T> implements Operator<T, T> {
                         }
                         unsubscribe();
                     }
-                }
-            }
-
-            @Override
-            public void resumeWith(Action0 resume) {
-                super.resumeWith(resume);
-                if (child.isPaused()) {
-                    child.resumeWith(new Action0() {
-                        @Override
-                        public void call() {
-                            resume();
-                        }
-                    });
                 }
             }
         };

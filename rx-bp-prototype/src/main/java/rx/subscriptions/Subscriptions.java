@@ -19,6 +19,7 @@ import java.util.concurrent.Future;
 
 import rx.Subscription;
 import rx.functions.Action0;
+import rx.functions.Action1;
 
 /**
  * Helper methods and utilities for creating and working with {@link Subscription} objects
@@ -66,17 +67,7 @@ public final class Subscriptions {
             }
             
             @Override
-            public void pause() {
-            }
-            
-            @Override
-            public boolean isPaused() {
-                return false;
-            }
-            
-            @Override
-            public void resumeWith(Action0 resume) {
-                resume.call();
+            public void setProducer(Action1<Integer> resume) {
             }
         };
     }
@@ -105,18 +96,9 @@ public final class Subscriptions {
             return false;
         }
         
+
         @Override
-        public void pause() {
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return false;
-        }
-        
-        @Override
-        public void resumeWith(Action0 resume) {
-            resume.call();
+        public void setProducer(Action1<Integer> resume) {
         }
     };
 }

@@ -21,7 +21,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Subscription;
 import rx.exceptions.CompositeException;
-import rx.functions.Action0;
+import rx.functions.Action1;
+import rx.functions.Actions;
 
 /**
  * Subscription that represents a group of Subscriptions that are unsubscribed
@@ -44,23 +45,23 @@ public final class CompositeSubscription implements Subscription {
     /** Unsubscribed empty state. */
     private static final State CLEAR_STATE_UNSUBSCRIBED_PAUSED;
     static {
-        CLEAR_STATE = new State(false, false, new Subscription[0], new Action0[0]);
-        CLEAR_STATE_PAUSED = new State(false, true, new Subscription[0], new Action0[0]);
-        CLEAR_STATE_UNSUBSCRIBED = new State(true, false, new Subscription[0], new Action0[0]);
-        CLEAR_STATE_UNSUBSCRIBED_PAUSED = new State(true, true, new Subscription[0], new Action0[0]);
+        CLEAR_STATE = new State(false, new Subscription[0], null, -1);
+        CLEAR_STATE_PAUSED = new State(false, new Subscription[0], null, 0);
+        CLEAR_STATE_UNSUBSCRIBED = new State(true, new Subscription[0], null, -1);
+        CLEAR_STATE_UNSUBSCRIBED_PAUSED = new State(true, new Subscription[0], null, 0);
     }
 
     private static final class State {
         private final boolean isUnsubscribed;
-        private final boolean isPaused;
         private final Subscription[] subscriptions;
-        private final Action0[] resumes;
+        private final Action1<Integer> producer;
+        private final int n;
 
-        State(boolean u, boolean p, Subscription[] s, Action0[] r) {
+        State(boolean u, Subscription[] s, Action1<Integer> p, int n) {
             this.isUnsubscribed = u;
-            this.isPaused = p;
             this.subscriptions = s;
-            this.resumes = r;
+            this.producer = p;
+            this.n = n;
         }
 
         State unsubscribe() {
@@ -72,7 +73,7 @@ public final class CompositeSubscription implements Subscription {
             Subscription[] newSubscriptions = new Subscription[idx + 1];
             System.arraycopy(subscriptions, 0, newSubscriptions, 0, idx);
             newSubscriptions[idx] = s;
-            return new State(isUnsubscribed, isPaused, newSubscriptions, new Action0[0]);
+            return new State(isUnsubscribed, newSubscriptions, null, n);
         }
 
         State remove(Subscription s) {
@@ -98,37 +99,32 @@ public final class CompositeSubscription implements Subscription {
             if (idx < newSubscriptions.length) {
                 Subscription[] newSub2 = new Subscription[idx];
                 System.arraycopy(newSubscriptions, 0, newSub2, 0, idx);
-                return new State(isUnsubscribed, isPaused, newSub2, resumes);
+                return new State(isUnsubscribed, newSub2, producer, n);
             }
-            return new State(isUnsubscribed, isPaused, newSubscriptions, resumes);
+            return new State(isUnsubscribed, newSubscriptions, producer, n);
         }
 
+        // FIXME
         State clear() {
-            return isUnsubscribed ? isPaused ? CLEAR_STATE_UNSUBSCRIBED_PAUSED : CLEAR_STATE_UNSUBSCRIBED : isPaused ? CLEAR_STATE_PAUSED : CLEAR_STATE;
+            return isUnsubscribed ? n == 0 ? CLEAR_STATE_UNSUBSCRIBED_PAUSED : CLEAR_STATE_UNSUBSCRIBED : n == 0 ? CLEAR_STATE_PAUSED : CLEAR_STATE;
         }
 
         public State pause() {
-            if (this == CLEAR_STATE)
-                return CLEAR_STATE_PAUSED;
-            if (this == CLEAR_STATE_UNSUBSCRIBED)
-                return CLEAR_STATE_UNSUBSCRIBED_PAUSED;
-            return new State(isUnsubscribed, true, subscriptions, resumes);
+            // producer should already be null
+            return new State(isUnsubscribed, subscriptions, producer, 0);
         }
 
-        public State resume() {
-            if (this == CLEAR_STATE_PAUSED)
-                return CLEAR_STATE;
-            if (this == CLEAR_STATE_UNSUBSCRIBED_PAUSED)
-                return CLEAR_STATE_UNSUBSCRIBED;
-            return new State(isUnsubscribed, false, subscriptions, new Action0[0]);
+        public State request(int n) {
+            int newN = -1;
+            if (n != -1) {
+                newN = (this.n == -1 ? 0 : n) + n;
+            }
+
+            return new State(isUnsubscribed, subscriptions, producer, newN);
         }
 
-        public State toResume(Action0 r) {
-            int idx = resumes.length;
-            Action0[] newresumes = new Action0[idx + 1];
-            System.arraycopy(resumes, 0, newresumes, 0, idx);
-            newresumes[idx] = r;
-            return new State(isUnsubscribed, isPaused, subscriptions, newresumes);
+        public State setProducer(Action1<Integer> producer) {
+            return new State(isUnsubscribed, subscriptions, producer, n);
         }
     }
 
@@ -137,7 +133,7 @@ public final class CompositeSubscription implements Subscription {
     }
 
     public CompositeSubscription(final Subscription... subscriptions) {
-        state.set(new State(false, false, subscriptions, new Action0[0]));
+        state.set(new State(false, subscriptions, null, -1));
     }
 
     @Override
@@ -150,9 +146,6 @@ public final class CompositeSubscription implements Subscription {
         State newState;
         do {
             oldState = state.get();
-            if (oldState.isPaused) {
-                s.pause();
-            }
             if (oldState.isUnsubscribed) {
                 s.unsubscribe();
                 return;
@@ -232,64 +225,30 @@ public final class CompositeSubscription implements Subscription {
         }
     }
 
-    public void pause() {
+    public void request(int n) {
         State oldState;
         State newState;
+        State midState;
         do {
             oldState = state.get();
-            if (oldState.isPaused) {
-                return;
-            } else {
-                newState = oldState.pause();
+            midState = oldState.request(n);
+            if (midState.n != 0 && midState.producer != null)
+                newState = midState.pause();
+            else {
+                newState = midState;
             }
         } while (!state.compareAndSet(oldState, newState));
-        pauseAll(oldState.subscriptions);
-    }
 
-    private void pauseAll(Subscription[] subscriptions) {
-        final List<Throwable> es = new ArrayList<Throwable>();
-        for (Subscription s : subscriptions) {
-            try {
-                s.pause();
-            } catch (Throwable e) {
-                es.add(e);
-            }
-        }
-        if (!es.isEmpty()) {
-            if (es.size() == 1) {
-                Throwable t = es.get(0);
-                if (t instanceof RuntimeException) {
-                    throw (RuntimeException) t;
-                } else {
-                    throw new CompositeException(
-                            "Failed to pause to 1 or more subscribers.", es);
-                }
-            } else {
-                throw new CompositeException(
-                        "Failed to pause to 2 or more subscribers.", es);
-            }
+        if (midState.n != 0 && midState.producer != null) {
+            midState.producer.call(midState.n);
         }
     }
 
-    public void resume() {
-        State oldState;
-        State newState;
-        do {
-            oldState = state.get();
-            if (!oldState.isPaused) {
-                return;
-            } else {
-                newState = oldState.resume();
-            }
-        } while (!state.compareAndSet(oldState, newState));
-        resumeFromAll(oldState.resumes);
-    }
-
-    private void resumeFromAll(Action0[] resumes) {
+    private void resumeFromAll(Action1<Integer>[] resumes, int n) {
         final List<Throwable> es = new ArrayList<Throwable>();
-        for (Action0 r : resumes) {
+        for (Action1<Integer> r : resumes) {
             try {
-                r.call();
+                r.call(n);
             } catch (Throwable e) {
                 es.add(e);
             }
@@ -310,21 +269,22 @@ public final class CompositeSubscription implements Subscription {
         }
     }
 
-    public void resumeWith(Action0 resume) {
+    public void setProducer(Action1<Integer> producer) {
         State oldState;
+        State midState;
         State newState;
         do {
             oldState = state.get();
-            if (!oldState.isPaused) {
-                resume.call();
-                return;
-            } else {
-                newState = oldState.toResume(resume);
-            }
+            midState = oldState.setProducer(producer);
+            if (midState.n != 0 && midState.producer != null)
+                newState = oldState.clear();
+            else
+                newState = midState;
         } while (!state.compareAndSet(oldState, newState));
+        midState.producer.call(midState.n);
     }
 
     public boolean isPaused() {
-        return state.get().isPaused;
+        return state.get().n == 0;
     }
 }

@@ -1,35 +1,40 @@
 package rx.operators;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
+
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.InOrder;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 import rx.Subscriber;
-import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.observers.Subscribers;
 
 public class OperatorWhilePausedTest {
     private static final Object VALUE = new Object();
 
     @Test
-    @Ignore
     public void testDrop() {
-        final AtomicReference<Action0> resume = new AtomicReference<Action0>();
+        final AtomicReference<Action1<Integer>> resume = new AtomicReference<Action1<Integer>>();
         Subscriber<? super Object> out = spy(Subscribers.empty());
         doAnswer(new Answer<Void>() {
             @Override
             public Void answer(InvocationOnMock invocation) throws Throwable {
-                assertTrue(resume.compareAndSet(null, (Action0) invocation.getArguments()[0]));
+                assertTrue(resume.compareAndSet(null, (Action1<Integer>) invocation.getArguments()[0]));
                 return null;
             }
-        }).when(out).resumeWith(any(Action0.class));
+        }).when(out).setProducer(any(Action1.class));
 
         final AtomicInteger onNextCount = new AtomicInteger();
         doAnswer(new Answer<Void>() {
@@ -49,16 +54,16 @@ public class OperatorWhilePausedTest {
             assertEquals(1, onNextCount.get());
             assertNull(resume.get());
         }
-        in.pause();
+        //in.pause();
         {
             assertNotNull(resume.get());
-            order.verify(out).resumeWith(resume.get());
+            order.verify(out).setProducer(resume.get());
         }
         in.onNext(VALUE);
         {
             assertEquals(1, onNextCount.get());
         }
-        resume.get().call();
+        resume.get().call(1);
         {
         }
         in.onNext(VALUE);

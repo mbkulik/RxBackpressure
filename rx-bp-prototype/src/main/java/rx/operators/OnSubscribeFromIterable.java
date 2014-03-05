@@ -20,11 +20,13 @@ import java.util.Iterator;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.functions.Action0;
+import rx.functions.Action1;
 
 /**
  * Converts an Iterable sequence into an Observable.
  * <p>
- * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
+ * <img width="640"
+ * src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
  * <p>
  * You can convert any object that supports the Iterable interface into an Observable that emits
  * each item in the object, with the toObservable operation.
@@ -40,30 +42,37 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
     @Override
     public void call(final Subscriber<? super T> o) {
         final Iterator<? extends T> iter = is.iterator();
-        new Action0() {
+        Action1<Integer> func = new Action1<Integer>() {
             @Override
-            public void call() {
-                if (o.isUnsubscribed()) {
+            public void call(Integer n) {
+                int count = 0;
+
+                if (checkInvarient(o, n, count))
                     return;
-                }
-                if (o.isPaused()) {
-                    o.resumeWith(this);
-                    return;
-                }
-                while(iter.hasNext()) {
+
+                while (iter.hasNext()) {
                     final T value = iter.next();
                     o.onNext(value);
-                    if (o.isUnsubscribed()) {
+                    count++;
+
+                    if (checkInvarient(o, n, count))
                         return;
-                    }
-                    if (o.isPaused()) {
-                        o.resumeWith(this);
-                        return;
-                    }
                 }
                 o.onCompleted();
             }
-        }.call();
-    }
 
+            private boolean checkInvarient(final Subscriber<? super T> o, Integer n, int count) {
+                if (o.isUnsubscribed()) {
+                    return true;
+                }
+                if (o.isPaused() || (count >= n && count != -1)) {
+                    o.setProducer(this);
+                    return true;
+                }
+                return false;
+            }
+        };
+
+        o.setProducer(func);
+    }
 }

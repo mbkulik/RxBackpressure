@@ -9,6 +9,7 @@ import rx.Observable;
 import rx.Observable.Operator;
 import rx.Subscriber;
 import rx.functions.Action0;
+import rx.functions.Action1;
 
 public class OperatorWhilePaused {
     public static final Operator<Object, Object> DROP = new Operator<Object, Object>() {
@@ -67,9 +68,9 @@ public class OperatorWhilePaused {
                             // if this is the first call after this subscribers been paused.
                             if (latch.getCount() == 0) {
                                 latch = new CountDownLatch(1);
-                                o.resumeWith(new Action0() {
+                                o.setProducer(new Action1<Integer>() {
                                     @Override
-                                    public void call() {
+                                    public void call(Integer n) {
                                         // implemented just like Observable.from but uses
                                         // isEmpty/remove
                                         // instead of an iterator's hasNext/next.
@@ -78,7 +79,7 @@ public class OperatorWhilePaused {
                                             return;
                                         }
                                         if (isPaused()) {
-                                            o.resumeWith(this);
+                                            o.setProducer(this);
                                             return;
                                         }
                                         while (!buffer.isEmpty()) {
@@ -88,7 +89,7 @@ public class OperatorWhilePaused {
                                                 return;
                                             }
                                             if (isPaused()) {
-                                                o.resumeWith(this);
+                                                o.setProducer(this);
                                                 return;
                                             }
                                         }
@@ -138,9 +139,9 @@ public class OperatorWhilePaused {
                         final CountDownLatch latch = new CountDownLatch(1);
 
                         // give the subscriber the means to unblock this thread.
-                        resumeWith(new Action0() {
+                        setProducer(new Action1<Integer>() {
                             @Override
-                            public void call() {
+                            public void call(Integer n) {
                                 latch.countDown();
                             }
                         });
@@ -190,9 +191,9 @@ public class OperatorWhilePaused {
                     }
                     if (isPaused()) {
                         unsubscribe();
-                        out.resumeWith(new Action0() {
+                        out.setProducer(new Action1<Integer>() {
                             @Override
-                            public void call() {
+                            public void call(Integer n) {
                                 observable.lift(self).subscribe(out);
                             }
                         });

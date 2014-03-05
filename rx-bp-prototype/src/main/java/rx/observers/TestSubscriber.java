@@ -143,4 +143,9 @@ public class TestSubscriber<T> extends Subscriber<T> {
     public Thread getLastSeenThread() {
         return lastSeenThread;
     }
+    
+    @Override
+    public void request(int n) {
+        super.request(n);
+    }
 }

@@ -151,18 +151,8 @@ public class NewThreadScheduler extends Scheduler {
         }
 
         @Override
-        public void pause() {
-            innerSubscription.pause();
-        }
-
-        @Override
-        public boolean isPaused() {
-            return innerSubscription.isPaused();
-        }
-
-        @Override
-        public void resumeWith(Action0 resume) {
-            innerSubscription.resumeWith(resume);
+        public void setProducer(Action1<Integer> resume) {
+            innerSubscription.setProducer(resume);
         }
     }
 }

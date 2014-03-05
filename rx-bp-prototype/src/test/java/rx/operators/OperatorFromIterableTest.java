@@ -15,16 +15,23 @@
  */
 package rx.operators;
 
-import static org.mockito.Matchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import rx.Observable;
 import rx.Observer;
+import rx.observers.TestSubscriber;
+import rx.schedulers.Schedulers;
 
 public class OperatorFromIterableTest {
 
@@ -54,6 +61,50 @@ public class OperatorFromIterableTest {
         verify(observer, times(1)).onNext("three");
         verify(observer, Mockito.never()).onError(any(Throwable.class));
         verify(observer, times(1)).onCompleted();
+    }
+
+    @Test
+    public void testBackpressure() {
+        Observable<Integer> observable = Observable.from(new Iterable<Integer>() {
+            @Override
+            public Iterator<Integer> iterator() {
+                return new Iterator<Integer>() {
+                    int i = 0;
+
+                    @Override
+                    public void remove() {
+                    }
+
+                    @Override
+                    public Integer next() {
+                        return i++;
+                    }
+
+                    @Override
+                    public boolean hasNext() {
+                        return true;
+                    }
+                };
+            }
+        });
+
+        TestSubscriber<Integer> testSubscriber = new TestSubscriber<Integer>() {
+            int i = 0;
+
+            @Override
+            public void onNext(Integer t) {
+                super.onNext(t);
+                if (++i == 3) {
+                    onCompleted();
+                    unsubscribe();
+                }
+            }
+        };
+
+        observable.observeOn(Schedulers.newThread()).subscribe(testSubscriber);
+        testSubscriber.assertReceivedOnNext(Collections.<Integer>emptyList());
+        testSubscriber.assertReceivedOnNext(Arrays.asList(0, 1, 2));
+        testSubscriber.awaitTerminalEvent();
     }
 
 }

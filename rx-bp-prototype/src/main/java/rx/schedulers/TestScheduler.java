@@ -129,18 +129,8 @@ public class TestScheduler extends Scheduler {
         }
         
         @Override
-        public void pause() {
-            s.pause();
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return s.isPaused();
-        }
-        
-        @Override
-        public void resumeWith(Action0 resume) {
-            s.resumeWith(resume);
+        public void setProducer(Action1<Integer> producer) {
+            s.setProducer(producer);
         }
 
         @Override
