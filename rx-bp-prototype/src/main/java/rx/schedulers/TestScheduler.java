@@ -25,6 +25,7 @@ import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.subscriptions.BooleanSubscription;
+import rx.subscriptions.CompositeSubscription;
 
 public class TestScheduler extends Scheduler {
     private final Queue<TimedAction> queue = new PriorityQueue<TimedAction>(11, new CompareActionsByTime());
@@ -116,31 +117,26 @@ public class TestScheduler extends Scheduler {
 
     private final class InnerTestScheduler extends Inner {
 
-        private BooleanSubscription s = BooleanSubscription.create();
+        private CompositeSubscription innerSubscription = new CompositeSubscription();
 
         @Override
         public void unsubscribe() {
-            s.unsubscribe();
+            innerSubscription.unsubscribe();
         }
 
         @Override
         public boolean isUnsubscribed() {
-            return s.isUnsubscribed();
+            return innerSubscription.isUnsubscribed();
+        }
+
+        @Override
+        public void setWorker(Action1<Integer> worker) {
+            innerSubscription.setWorker(worker);
         }
         
         @Override
-        public void pause() {
-            s.pause();
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return s.isPaused();
-        }
-        
-        @Override
-        public void resumeWith(Action0 resume) {
-            s.resumeWith(resume);
+        public Action1<Integer> getWorker() {
+            return innerSubscription.getWorker();
         }
 
         @Override

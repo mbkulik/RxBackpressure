@@ -24,9 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 import rx.Scheduler;
 import rx.Subscription;
-import rx.functions.Action0;
 import rx.functions.Action1;
-import rx.subscriptions.MultipleAssignmentSubscription;
+import rx.subscriptions.CompositeSubscription;
 import rx.subscriptions.Subscriptions;
 
 /**
@@ -93,7 +92,7 @@ public class ExecutorScheduler extends Scheduler {
 
     private class InnerExecutorScheduler extends Scheduler.Inner {
 
-        private final MultipleAssignmentSubscription innerSubscription = new MultipleAssignmentSubscription();
+        private final CompositeSubscription innerSubscription = new CompositeSubscription();
 
         @Override
         public void schedule(final Action1<Scheduler.Inner> action, long delayTime, TimeUnit unit) {
@@ -186,19 +185,15 @@ public class ExecutorScheduler extends Scheduler {
             return innerSubscription.isUnsubscribed();
         }
 
+
         @Override
-        public void pause() {
-            innerSubscription.pause();
+        public void setWorker(Action1<Integer> worker) {
+            innerSubscription.setWorker(worker);
         }
         
         @Override
-        public boolean isPaused() {
-            return innerSubscription.isPaused();
+        public Action1<Integer> getWorker() {
+            return innerSubscription.getWorker();
         }
-
-        @Override
-        public void resumeWith(Action0 resume) {
-            innerSubscription.resumeWith(resume);
-        }
-    }
+    }        
 }

@@ -16,15 +16,19 @@
 package rx.operators;
 
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.functions.Action0;
+import rx.functions.Action1;
+import rx.subscriptions.Subscriptions;
 
 /**
  * Converts an Iterable sequence into an Observable.
  * <p>
- * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
+ * <img width="640"
+ * src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
  * <p>
  * You can convert any object that supports the Iterable interface into an Observable that emits
  * each item in the object, with the toObservable operation.
@@ -40,30 +44,22 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
     @Override
     public void call(final Subscriber<? super T> o) {
         final Iterator<? extends T> iter = is.iterator();
-        new Action0() {
+        final AtomicInteger previousTotal = new AtomicInteger();
+        o.setWorker(new Action1<Integer>() {
+            @Override
+            public void call(Integer size) {
+                // int start = previousTotal.getAndAdd(size);
+                if (iter.hasNext())
+                    o.onNext(iter.next());
+                else
+                    o.onCompleted();
+            }
+        });
+        o.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
-                if (o.isUnsubscribed()) {
-                    return;
-                }
-                if (o.isPaused()) {
-                    o.resumeWith(this);
-                    return;
-                }
-                while(iter.hasNext()) {
-                    final T value = iter.next();
-                    o.onNext(value);
-                    if (o.isUnsubscribed()) {
-                        return;
-                    }
-                    if (o.isPaused()) {
-                        o.resumeWith(this);
-                        return;
-                    }
-                }
-                o.onCompleted();
+                // close
             }
-        }.call();
+        }));
     }
-
 }

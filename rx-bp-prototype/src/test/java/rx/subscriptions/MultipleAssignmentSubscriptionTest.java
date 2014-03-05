@@ -38,7 +38,7 @@ public class MultipleAssignmentSubscriptionTest {
 
     @Test
     public void testNoUnsubscribeWhenReplaced() {
-        MultipleAssignmentSubscription mas = new MultipleAssignmentSubscription();
+        CompositeSubscription mas = new CompositeSubscription();
 
         mas.set(s);
         mas.set(Subscriptions.empty());
@@ -49,7 +49,7 @@ public class MultipleAssignmentSubscriptionTest {
 
     @Test
     public void testUnsubscribeWhenParentUnsubscribes() {
-        MultipleAssignmentSubscription mas = new MultipleAssignmentSubscription();
+        CompositeSubscription mas = new CompositeSubscription();
         mas.set(s);
         mas.unsubscribe();
         mas.unsubscribe();
@@ -61,7 +61,7 @@ public class MultipleAssignmentSubscriptionTest {
 
     @Test
     public void subscribingWhenUnsubscribedCausesImmediateUnsubscription() {
-        MultipleAssignmentSubscription mas = new MultipleAssignmentSubscription();
+        CompositeSubscription mas = new CompositeSubscription();
         mas.unsubscribe();
         Subscription underlying = mock(Subscription.class);
         mas.set(underlying);
@@ -70,7 +70,7 @@ public class MultipleAssignmentSubscriptionTest {
 
     @Test
     public void testSubscriptionRemainsAfterUnsubscribe() {
-        MultipleAssignmentSubscription mas = new MultipleAssignmentSubscription();
+        CompositeSubscription mas = new CompositeSubscription();
 
         mas.set(s);
         mas.unsubscribe();

@@ -78,18 +78,13 @@ public final class ImmediateScheduler extends Scheduler {
         }
 
         @Override
-        public void pause() {
-            innerSubscription.pause();
+        public void setWorker(Action1<Integer> worker) {
+            innerSubscription.setWorker(worker);
         }
         
         @Override
-        public boolean isPaused() {
-            return innerSubscription.isPaused();
-        }
-
-        @Override
-        public void resumeWith(Action0 resume) {
-            innerSubscription.resumeWith(resume);
+        public Action1<Integer> getWorker() {
+            return innerSubscription.getWorker();
         }
     }
 

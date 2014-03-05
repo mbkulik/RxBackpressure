@@ -81,32 +81,9 @@ public final class OperatorTake<T> implements Operator<T, T> {
                     child.onNext(i);
                     if (++count >= limit) {
                         completed = true;
-                        if (child.isPaused()) {
-                            child.resumeWith(new Action0() {
-                                @Override
-                                public void call() {
-                                    child.onCompleted();
-                                }
-                            });
-                        }
-                        else {
-                            child.onCompleted();
-                        }
+                        child.onCompleted();
                         unsubscribe();
                     }
-                }
-            }
-
-            @Override
-            public void resumeWith(Action0 resume) {
-                super.resumeWith(resume);
-                if (child.isPaused()) {
-                    child.resumeWith(new Action0() {
-                        @Override
-                        public void call() {
-                            resume();
-                        }
-                    });
                 }
             }
         };

@@ -37,14 +37,14 @@ public class CompositeSubscriptionTest {
     public void testSuccess() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
             }
         }));
 
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
@@ -64,7 +64,7 @@ public class CompositeSubscriptionTest {
         final int count = 10;
         final CountDownLatch start = new CountDownLatch(1);
         for (int i = 0; i < count; i++) {
-            s.add(BooleanSubscription.create(new Action0() {
+            s.add(Subscriptions.create(new Action0() {
                 @Override
                 public void call() {
                     counter.incrementAndGet();
@@ -101,14 +101,14 @@ public class CompositeSubscriptionTest {
     public void testException() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 throw new RuntimeException("failed on first one");
             }
         }));
 
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
@@ -131,21 +131,21 @@ public class CompositeSubscriptionTest {
     public void testCompositeException() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 throw new RuntimeException("failed on first one");
             }
         }));
 
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 throw new RuntimeException("failed on second one too");
             }
         }));
 
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
@@ -166,8 +166,8 @@ public class CompositeSubscriptionTest {
 
     @Test
     public void testRemoveUnsubscribes() {
-        BooleanSubscription s1 = BooleanSubscription.create();
-        BooleanSubscription s2 = BooleanSubscription.create();
+        Subscription s1 = new CompositeSubscription();
+        Subscription s2 = new CompositeSubscription();
 
         CompositeSubscription s = new CompositeSubscription();
         s.add(s1);
@@ -181,8 +181,8 @@ public class CompositeSubscriptionTest {
 
     @Test
     public void testClear() {
-        BooleanSubscription s1 = BooleanSubscription.create();
-        BooleanSubscription s2 = BooleanSubscription.create();
+        Subscription s1 = new CompositeSubscription();
+        Subscription s2 = new CompositeSubscription();
 
         CompositeSubscription s = new CompositeSubscription();
         s.add(s1);
@@ -197,7 +197,7 @@ public class CompositeSubscriptionTest {
         assertTrue(s2.isUnsubscribed());
         assertFalse(s.isUnsubscribed());
 
-        BooleanSubscription s3 = BooleanSubscription.create();
+        Subscription s3 = new CompositeSubscription();
 
         s.add(s3);
         s.unsubscribe();
@@ -210,7 +210,7 @@ public class CompositeSubscriptionTest {
     public void testUnsubscribeIdempotence() {
         final AtomicInteger counter = new AtomicInteger();
         CompositeSubscription s = new CompositeSubscription();
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
@@ -233,7 +233,7 @@ public class CompositeSubscriptionTest {
 
         final int count = 10;
         final CountDownLatch start = new CountDownLatch(1);
-        s.add(BooleanSubscription.create(new Action0() {
+        s.add(Subscriptions.create(new Action0() {
             @Override
             public void call() {
                 counter.incrementAndGet();
@@ -264,57 +264,5 @@ public class CompositeSubscriptionTest {
 
         // we should have only unsubscribed once
         assertEquals(1, counter.get());
-    }
-    
-    @Test
-    public void testPauseCompability() {
-        final AtomicInteger completedCount = new AtomicInteger();
-        Observable<Integer> src = Observable.empty();
-        Observable<Integer> mid = src.lift(new Operator<Integer, Integer>() {
-            @Override
-            public Subscriber<? super Integer> call(final Subscriber<? super Integer> out) {
-                return new Subscriber<Integer>(out) {
-                    @Override
-                    public void onCompleted() {
-                        completedCount.incrementAndGet();
-                        out.onCompleted();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        out.onError(e);
-                    }
-
-                    @Override
-                    public void onNext(Integer t) {
-                        out.onNext(t);
-                    }
-                };
-            }
-        });
-        class EndSubscriber extends Subscriber<Integer> {
-            @Override
-            public void onCompleted() {
-                completedCount.incrementAndGet();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-            }
-
-            @Override
-            public void onNext(Integer t) {
-            }
-
-            public void resume() {
-                super.resume();
-            }
-        }
-        final EndSubscriber endSubscriber = new EndSubscriber();
-        endSubscriber.pause();
-        mid.subscribe(endSubscriber);
-        assertEquals(0, completedCount.get());
-        endSubscriber.resume();
-        assertEquals(2, completedCount.get());
     }
 }

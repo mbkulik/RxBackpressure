@@ -30,7 +30,7 @@ public final class Subscriptions {
      * @return {@link Subscription}
      */
     public static Subscription empty() {
-        return EMPTY;
+        return new CompositeSubscription();
     }
 
     /**
@@ -53,32 +53,12 @@ public final class Subscriptions {
      * @return {@link Subscription}
      */
     public static Subscription from(final Future<?> f) {
-        return new Subscription() {
-
+        return Subscriptions.create(new Action0() {
             @Override
-            public void unsubscribe() {
+            public void call() {
                 f.cancel(true);
             }
-
-            @Override
-            public boolean isUnsubscribed() {
-                return f.isCancelled();
-            }
-            
-            @Override
-            public void pause() {
-            }
-            
-            @Override
-            public boolean isPaused() {
-                return false;
-            }
-            
-            @Override
-            public void resumeWith(Action0 resume) {
-                resume.call();
-            }
-        };
+        });
     }
 
     /**
@@ -92,31 +72,4 @@ public final class Subscriptions {
     public static CompositeSubscription from(Subscription... subscriptions) {
         return new CompositeSubscription(subscriptions);
     }
-
-    /**
-     * A {@link Subscription} that does nothing when its unsubscribe method is called.
-     */
-    private static Subscription EMPTY = new Subscription() {
-        public void unsubscribe() {
-        }
-
-        @Override
-        public boolean isUnsubscribed() {
-            return false;
-        }
-        
-        @Override
-        public void pause() {
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return false;
-        }
-        
-        @Override
-        public void resumeWith(Action0 resume) {
-            resume.call();
-        }
-    };
 }

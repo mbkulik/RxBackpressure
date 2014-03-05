@@ -15,7 +15,7 @@
  */
 package rx;
 
-import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
 
 /**
@@ -72,27 +72,12 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         return cs.isUnsubscribed();
     }
 
-    public final void pause() {
-        cs.pause();
+    public void setWorker(Action1<Integer> worker) {
+        cs.setWorker(worker);
     }
-
-    protected void resume() {
-        cs.resume();
-    }
-
-    public void resumeWith(Action0 resume) {
-        cs.resumeWith(resume);
-        if (op != null && op.isPaused()) {
-            op.resumeWith(new Action0() {
-                @Override
-                public void call() {
-                    resume();
-                }
-            });
-        }
-    }
-
-    public final boolean isPaused() {
-        return cs.isPaused();
+    
+    @Override
+    public Action1<Integer> getWorker() {
+        return cs.getWorker();
     }
 }
