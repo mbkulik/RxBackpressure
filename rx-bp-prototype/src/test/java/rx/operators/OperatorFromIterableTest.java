@@ -21,9 +21,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -94,6 +92,12 @@ public class OperatorFromIterableTest {
             @Override
             public void onNext(Integer t) {
                 super.onNext(t);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println("c t = "+ t +" thread "+ Thread.currentThread());
                 if (++i == 3) {
                     onCompleted();
                     unsubscribe();
@@ -101,7 +105,9 @@ public class OperatorFromIterableTest {
             }
         };
 
-        observable.observeOn(Schedulers.newThread()).subscribe(testSubscriber);
+        observable
+        .subscribeOn(Schedulers.newThread())
+        .observeOn(Schedulers.newThread()).subscribe(testSubscriber);
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertReceivedOnNext(Arrays.asList(0, 1, 2));
     }

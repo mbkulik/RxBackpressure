@@ -37,7 +37,39 @@ public class OperatorSubscribeOn<T> implements Operator<T, Observable<T>> {
 
     @Override
     public Subscriber<? super Observable<T>> call(final Subscriber<? super T> subscriber) {
-        return new Subscriber<Observable<T>>(subscriber) {
+        final Subscriber<T> foo = new Subscriber<T>(subscriber) {
+            @Override
+            public void setProducer(final Action1<Integer> resume) {
+                subscriber.setProducer(new Action1<Integer>() {
+                    @Override
+                    public void call(final Integer n) {
+                        scheduler.schedule(new Action1<Inner>() {
+                            @Override
+                            public void call(Inner otherInner) {
+                                resume.call(n);
+                            }
+                        });
+                    }
+                });
+            }
+
+            @Override
+            public void onCompleted() {
+                subscriber.onCompleted();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                subscriber.onError(e);
+            }
+
+            @Override
+            public void onNext(T t) {
+                subscriber.onNext(t);
+            }
+        };
+        return new Subscriber<Observable<T>>(foo) {
+            volatile Inner _inner = null; 
 
             @Override
             public void onCompleted() {
@@ -55,11 +87,11 @@ public class OperatorSubscribeOn<T> implements Operator<T, Observable<T>> {
 
                     @Override
                     public void call(final Inner inner) {
-                        o.subscribe(subscriber);
+                        _inner = inner;
+                        o.subscribe(foo);
                     }
                 }));
             }
-
         };
     }
 }

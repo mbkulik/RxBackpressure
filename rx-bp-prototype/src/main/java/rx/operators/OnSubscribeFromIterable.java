@@ -18,9 +18,11 @@ package rx.operators;
 import java.util.Iterator;
 
 import rx.Observable.OnSubscribe;
+import rx.Scheduler;
+import rx.Scheduler.Inner;
 import rx.Subscriber;
-import rx.functions.Action0;
 import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 
 /**
  * Converts an Iterable sequence into an Observable.
@@ -44,17 +46,18 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
         final Iterator<? extends T> iter = is.iterator();
         Action1<Integer> func = new Action1<Integer>() {
             @Override
-            public void call(Integer n) {
+            public void call(final Integer n) {
                 int count = 0;
-
+                
                 if (checkInvarient(o, n, count))
                     return;
-
+                
                 while (iter.hasNext()) {
                     final T value = iter.next();
                     o.onNext(value);
+                    System.out.println("p t = "+ value +" thread "+ Thread.currentThread());
                     count++;
-
+                    
                     if (checkInvarient(o, n, count))
                         return;
                 }
