@@ -54,8 +54,8 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
                 
                 while (iter.hasNext()) {
                     final T value = iter.next();
+                    System.err.println("p t = "+ value +" thread "+ Thread.currentThread());
                     o.onNext(value);
-                    System.out.println("p t = "+ value +" thread "+ Thread.currentThread());
                     count++;
                     
                     if (checkInvarient(o, n, count))

@@ -75,6 +75,10 @@ public class OperatorFromIterableTest {
 
                     @Override
                     public Integer next() {
+                        try {
+                            Thread.sleep(0);
+                        } catch (InterruptedException e) {
+                        }
                         return i++;
                     }
 
@@ -92,21 +96,20 @@ public class OperatorFromIterableTest {
             @Override
             public void onNext(Integer t) {
                 super.onNext(t);
+                System.err.println("c t = "+ t +" thread "+ Thread.currentThread());
+                if (++i == 7) {
+                    onCompleted();
+                    unsubscribe();
+                }
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                System.out.println("c t = "+ t +" thread "+ Thread.currentThread());
-                if (++i == 3) {
-                    onCompleted();
-                    unsubscribe();
                 }
             }
         };
 
         observable
-        .subscribeOn(Schedulers.newThread())
+        //.subscribeOn(Schedulers.newThread())
         .observeOn(Schedulers.newThread()).subscribe(testSubscriber);
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertReceivedOnNext(Arrays.asList(0, 1, 2));
