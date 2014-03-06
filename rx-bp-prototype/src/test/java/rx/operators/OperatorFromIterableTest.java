@@ -102,9 +102,8 @@ public class OperatorFromIterableTest {
         };
 
         observable.observeOn(Schedulers.newThread()).subscribe(testSubscriber);
-        testSubscriber.assertReceivedOnNext(Collections.<Integer>emptyList());
-        testSubscriber.assertReceivedOnNext(Arrays.asList(0, 1, 2));
         testSubscriber.awaitTerminalEvent();
+        testSubscriber.assertReceivedOnNext(Arrays.asList(0, 1, 2));
     }
 
 }

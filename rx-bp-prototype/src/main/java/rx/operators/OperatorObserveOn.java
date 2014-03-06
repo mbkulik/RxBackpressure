@@ -109,7 +109,7 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
 
         protected void schedule() {
             long c = counter.getAndIncrement();
-            if (c+1 == 2)
+            if (c + 1 >= 2)
                 request(0);
             if (c == 0) {
                 if (recursiveScheduler == null) {
@@ -152,11 +152,9 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
                     } else {
                         observer.onNext((T) v);
                     }
-                    if (c <= 1) {
-                        request(1);
-                    }
                 }
             } while ((c = counter.decrementAndGet()) > 0 && !observer.isUnsubscribed());
+            request(2);
         }
 
     }

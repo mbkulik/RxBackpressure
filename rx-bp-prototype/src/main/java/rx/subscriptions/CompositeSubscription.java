@@ -117,7 +117,7 @@ public final class CompositeSubscription implements Subscription {
         public State request(int n) {
             int newN = -1;
             if (n != -1) {
-                newN = (this.n == -1 ? 0 : n) + n;
+                newN = (this.n == -1 ? 0 : this.n) + n;
             }
 
             return new State(isUnsubscribed, subscriptions, producer, newN);
@@ -281,7 +281,9 @@ public final class CompositeSubscription implements Subscription {
             else
                 newState = midState;
         } while (!state.compareAndSet(oldState, newState));
-        midState.producer.call(midState.n);
+        if (midState.n != 0 && midState.producer != null) {
+            midState.producer.call(midState.n);
+        }
     }
 
     public boolean isPaused() {

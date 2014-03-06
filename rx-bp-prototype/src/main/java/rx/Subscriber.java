@@ -78,17 +78,5 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
     public void setProducer(Action1<Integer> resume) {
         cs.setProducer(resume);
-        if (op != null && op.isPaused()) {
-            op.setProducer(new Action1<Integer>() {
-                @Override
-                public void call(Integer n) {
-                    request(n);
-                }
-            });
-        }
-    }
-
-    public final boolean isPaused() {
-        return cs.isPaused();
     }
 }

@@ -65,7 +65,7 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
                 if (o.isUnsubscribed()) {
                     return true;
                 }
-                if (o.isPaused() || (count >= n && count != -1)) {
+                if (count >= n && count != -1) {
                     o.setProducer(this);
                     return true;
                 }
