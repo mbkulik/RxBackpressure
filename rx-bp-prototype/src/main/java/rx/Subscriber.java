@@ -15,7 +15,7 @@
  */
 package rx;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
@@ -23,8 +23,7 @@ import rx.subscriptions.CompositeSubscription;
 /**
  * Provides a mechanism for receiving push-based notifications.
  * <p>
- * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the
- * {@link Observable} calls the Observer's <code>onNext</code> method to provide notifications. A
+ * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the {@link Observable} calls the Observer's <code>onNext</code> method to provide notifications. A
  * well-behaved {@link Observable} will call an Observer's <code>onCompleted</code> closure exactly
  * once or the Observer's <code>onError</code> closure exactly once.
  * <p>
@@ -52,12 +51,6 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
     protected Subscriber(final Subscriber<?> op) {
         this(op.cs, op);
-        setProducer(new Action1<Integer>() {
-            @Override
-            public void call(Integer n) {
-                op.request(n);
-            }
-        });
     }
 
     protected Subscriber(CompositeSubscription cs) {
@@ -80,26 +73,116 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         return cs.isUnsubscribed();
     }
 
-    private AtomicInteger n = new AtomicInteger(-1);
-
     public void request(int n) {
-        int oldN;
-        int newN = -1;
+        State previous;
+        State intermediate;
+        State newState;
         do {
-            oldN = this.n.get();
-            if (oldN == -1) {
-                newN = n == -1 ? -1 : n;
+            previous = state.get();
+            newState = previous.request(n);
+            intermediate = newState;
+            if (intermediate.p != null) {
+                // we want to try and claim
+                newState = intermediate.claim();
             }
-        } while (this.n.compareAndSet(oldN, newN));
-
-        if (producer != null) {
-            producer.call(n);
+        } while (!state.compareAndSet(previous, newState));
+        if (intermediate.p != null && intermediate.n > 0) {
+            // we have both P and N and won the claim so invoke
+            System.err.print("Subscriber => request => producer.call in " + this);
+            intermediate.p.call(intermediate.n);
         }
     }
 
-    private Action1<Integer> producer = null;
-
     public void setProducer(Action1<Integer> producer) {
-        this.producer = producer;
+        if (op == null) {
+            // end of chain, we must run
+            int claimed = claim();
+            if (claimed > 0) {
+                // use count if we have it
+                producer.call(claimed);
+            } else {
+                // otherwise we must run when at the end of the chain
+                producer.call(-1);
+            }
+        } else {
+            // middle operator ... we pass thru unless a request has been made
+
+            // if we have a non-0 value we will run as that means this operator has expressed interest
+            int claimed = claim();
+            if (claimed == State.NOT_SET) {
+                // we pass-thru to the next producer as it has not been set
+                System.err.print("Subscriber => pass thru from " + this + "  to  " + op);
+                op.setProducer(producer);
+            } else if (claimed != State.PAUSED) {
+                // it has been set and is not paused so we'll execute
+                System.err.print("Subscriber => setProducer => producer.call in " + this);
+                producer.call(claimed);
+            } else {
+                // save it for when more is requested
+                saveProducer(producer);
+            }
+        }
+    }
+
+    private int claim() {
+        State previous;
+        State newState;
+        do {
+            previous = state.get();
+            newState = previous.claim();
+        } while (!state.compareAndSet(previous, newState));
+        return previous.n;
+    }
+
+    private State saveProducer(Action1<Integer> producer) {
+        State previous;
+        State newState;
+        do {
+            previous = state.get();
+            newState = previous.producer(producer);
+        } while (!state.compareAndSet(previous, newState));
+        return newState;
+    }
+
+    private final AtomicReference<State> state = new AtomicReference<State>(State.create());
+
+    private static class State {
+        private final int n;
+        private final Action1<Integer> p;
+
+        private final static int PAUSED = 0;
+        private final static int INFINITE = -1;
+        private final static int NOT_SET = -2;
+
+        public State(int n, Action1<Integer> p) {
+            this.n = n;
+            this.p = p;
+        }
+
+        public static State create() {
+            return new State(-2, null); // not set
+        }
+
+        public State request(int _n) {
+            int newN = _n;
+            if (n > 0) {
+                // add to existing if it hasn't been used yet
+                newN = n + _n;
+            }
+            return new State(newN, p);
+        }
+
+        public State claim() {
+            if (n == -2) {
+                return this; // not set so return as is
+            } else {
+                return new State(0, p);
+            }
+        }
+
+        public State producer(Action1<Integer> _p) {
+            return new State(n, _p);
+        }
+
     }
 }

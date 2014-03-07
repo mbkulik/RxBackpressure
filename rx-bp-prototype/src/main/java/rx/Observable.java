@@ -211,15 +211,17 @@ public class Observable<T> {
             @Override
             public void call(Subscriber<? super R> o) {
                 try {
+                    System.out.println("*** lift START => child: " + o);
                     final Subscriber<? super T> i = lift.call(o);
-
-                    o.setProducer(new Action1<Integer>() {
-                        @Override
-                        public void call(Integer n) {
-                            System.err.println("chained request "+ n);
-                            i.request(n);
-                        }
-                    });
+                    System.out.println("*** lift MIDDLE => child: " + o + " parent: " + i);
+                    
+//                    o.setProducer(new Action1<Integer>() {
+//                        @Override
+//                        public void call(Integer n) {
+//                            System.err.println("chained request "+ n);
+//                            i.request(n);
+//                        }
+//                    });
 
                     f.call(i);
                 } catch (Throwable e) {

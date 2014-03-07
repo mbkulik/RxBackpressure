@@ -18,11 +18,8 @@ package rx.operators;
 import java.util.Iterator;
 
 import rx.Observable.OnSubscribe;
-import rx.Scheduler;
-import rx.Scheduler.Inner;
 import rx.Subscriber;
 import rx.functions.Action1;
-import rx.schedulers.Schedulers;
 
 /**
  * Converts an Iterable sequence into an Observable.
@@ -47,20 +44,22 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
         Action1<Integer> func = new Action1<Integer>() {
             @Override
             public void call(final Integer n) {
+                System.out.println("**** OnSubscribe start: " + n);
                 int count = 0;
-                
+
                 if (checkInvarient(o, n, count))
                     return;
-                
+
                 while (iter.hasNext()) {
                     final T value = iter.next();
-                    System.err.println("p t = "+ value +" thread "+ Thread.currentThread());
+                    System.err.println("p t = " + value + " thread " + Thread.currentThread());
                     o.onNext(value);
                     count++;
-                    
+
                     if (checkInvarient(o, n, count))
                         return;
                 }
+                System.out.println("*** onCompleted");
                 o.onCompleted();
             }
 
@@ -68,7 +67,7 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
                 if (o.isUnsubscribed()) {
                     return true;
                 }
-                if (count >= n && count != -1) {
+                if (n != -1 && count >= n) {
                     o.setProducer(this);
                     return true;
                 }
@@ -76,6 +75,7 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
             }
         };
 
+        System.out.println("**** OnSubscribe setProducer: " + func);
         o.setProducer(func);
     }
 }

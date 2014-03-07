@@ -75,17 +75,17 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         final Subscriber<? super T> observer;
         private volatile Scheduler.Inner recursiveScheduler;
 
-        private static final int SIZE = 4;
+        private static final int SIZE = 10;
         private static final int THRESHOLD = 1;
 
         private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(SIZE);
         final AtomicInteger counter = new AtomicInteger(0);
-        final AtomicInteger requested = new AtomicInteger(0);
+        private int requested = 0;
 
         public ObserveOnSubscriber(Subscriber<? super T> observer) {
             super(observer);
             this.observer = observer;
-            requested.set(SIZE);
+            requested += SIZE;
             request(SIZE);
         }
 
@@ -112,8 +112,7 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         }
 
         protected void schedule() {
-            int c = counter.getAndIncrement();
-            if (c == 0) {
+            if (counter.getAndIncrement() == 0) {
                 if (recursiveScheduler == null) {
                     add(scheduler.schedule(new Action1<Inner>() {
 
@@ -137,39 +136,34 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
             }
         }
 
+        /**
+         * This will be invoked by only a single thread, managed by the counter.increment/decrement
+         */
         @SuppressWarnings("unchecked")
         private void pollQueue() {
-            int r = requested.get();
-            int dr = 0;
-            while (r > 0) {
-                do {
-                    Object v = queue.poll();
-                    if (v != null) {
-                        if (v instanceof Sentinel) {
-                            if (v == NULL_SENTINEL) {
-                                observer.onNext(null);
-                            } else if (v == COMPLETE_SENTINEL) {
-                                observer.onCompleted();
-                            } else if (v instanceof ErrorSentinel) {
-                                observer.onError(((ErrorSentinel) v).e);
-                            }
-                        } else {
-                            observer.onNext((T) v);
+            do {
+                Object v = queue.poll();
+                if (v != null) {
+                    if (v instanceof Sentinel) {
+                        if (v == NULL_SENTINEL) {
+                            observer.onNext(null);
+                        } else if (v == COMPLETE_SENTINEL) {
+                            observer.onCompleted();
+                        } else if (v instanceof ErrorSentinel) {
+                            observer.onError(((ErrorSentinel) v).e);
                         }
+                    } else {
+                        observer.onNext((T) v);
                     }
-                    r = requested.decrementAndGet();
-                    if (r <= THRESHOLD) {
-                        System.err.println("break " + r);
-                        dr = SIZE - r;
-                        r = requested.addAndGet(dr);
-                        break;
-                    }
-                } while (counter.decrementAndGet() > 0 && !observer.isUnsubscribed());
-                if (dr > 0) {
-                    request(dr);
-                    dr = 0;
                 }
+                requested--;
+            } while (counter.decrementAndGet() > 0 && !observer.isUnsubscribed());
+            if (requested == 0) {
+                requested += SIZE;
+                System.err.println(">>> ObserveOn => Request More: " + SIZE + " requested: " + requested + " counter: " + counter.get());
+                request(SIZE);
             }
         }
+
     }
 }
