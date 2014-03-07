@@ -1,5 +1,6 @@
 package rx.examples;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.util.Arrays;
@@ -128,5 +129,80 @@ public class SimpleTests {
         if (diff > 10) { // 10 is working because observeOn is set to a buffer size of 10 right now
             fail("No back pressure. " + diff + " items buffered.");
         }
+    }
+
+    @Test
+    public void testRequestsExactlySkipPlusTake() {
+        final AtomicInteger sentCount = new AtomicInteger();
+        final AtomicInteger receivedCount = new AtomicInteger();
+        TestSubscriber<Long> ts = new TestSubscriber<Long>();
+
+        Observable.from(Sources.infinite()).map((i) -> {
+            sentCount.incrementAndGet();
+            return "Value_" + i;
+        }).skip(12).take(6).observeOn(Schedulers.newThread()).map((s) -> {
+            receivedCount.incrementAndGet();
+            // simulate doing computational work
+                return Util.busyWork(1000);
+            }).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        long diff = sentCount.get() - receivedCount.get();
+        System.out.println("testRequestsExactlySkipPlusTake => sent: " + sentCount.get() + " received: " + receivedCount.get());
+        if (diff != 12) { // 10 is working because observeOn is set to a buffer size of 10 right now
+            fail("Expected exactly 18 requested with 6 delivered but got diff of: " + diff);
+        }
+        assertEquals(18, sentCount.get());
+        assertEquals(6, receivedCount.get());
+    }
+
+    @Test
+    public void testTakeBiggerThanBufferAndLargeSkip() {
+        final AtomicInteger sentCount = new AtomicInteger();
+        final AtomicInteger receivedCount = new AtomicInteger();
+        TestSubscriber<Long> ts = new TestSubscriber<Long>();
+
+        Observable.from(Sources.infinite()).map((i) -> {
+            sentCount.incrementAndGet();
+            return "Value_" + i;
+        }).skip(5000).take(25).observeOn(Schedulers.newThread()).map((s) -> {
+            receivedCount.incrementAndGet();
+            // simulate doing computational work
+                return Util.busyWork(1000);
+            }).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        long diff = sentCount.get() - receivedCount.get();
+        System.out.println("testTakeBiggerThanBufferAndLargeSkip => sent: " + sentCount.get() + " received: " + receivedCount.get());
+        if (diff != 5000) {
+            fail("Expected exactly 5025 requested with 25 delivered but got diff of: " + diff);
+        }
+        assertEquals(5025, sentCount.get());
+        assertEquals(25, receivedCount.get());
+    }
+
+    @Test
+    public void testSkipThenTakeAfterObserveOn() {
+        final AtomicInteger sentCount = new AtomicInteger();
+        final AtomicInteger receivedCount = new AtomicInteger();
+        TestSubscriber<Long> ts = new TestSubscriber<Long>();
+
+        Observable.from(Sources.infinite()).map((i) -> {
+            sentCount.incrementAndGet();
+            return "Value_" + i;
+        }).skip(5000).observeOn(Schedulers.newThread()).map((s) -> {
+            receivedCount.incrementAndGet();
+            // simulate doing computational work
+                return Util.busyWork(1000);
+            }).take(25).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        long diff = sentCount.get() - receivedCount.get();
+        System.out.println("testSkipThenTakeAfterObserveOn => sent: " + sentCount.get() + " received: " + receivedCount.get());
+        if (diff != 5005) { // since take happens AFTER observeOn it can't be exact in the request size so we fetch batches of 10 ... so 10+10+10 to achieve 25 = 5 extra
+            fail("Expected exactly 18 requested with 6 delivered but got diff of: " + diff);
+        }
+        assertEquals(5030, sentCount.get());
+        assertEquals(25, receivedCount.get());
     }
 }

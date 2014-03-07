@@ -22,11 +22,9 @@ import rx.Observable.Operator;
 import rx.Scheduler;
 import rx.Scheduler.Inner;
 import rx.Subscriber;
-import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.schedulers.ImmediateScheduler;
 import rx.schedulers.TrampolineScheduler;
-import rx.subscriptions.Subscriptions;
 
 /**
  * Delivers events on the specified Scheduler asynchronously via an unbounded buffer.
@@ -78,9 +76,8 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         private volatile Scheduler.Inner recursiveScheduler;
 
         private static final int SIZE = 10;
-        private static final int THRESHOLD = 1;
 
-        private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(SIZE);
+        private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(SIZE + 1); // +1 for onCompleted if onNext fills buffer
         final AtomicInteger counter = new AtomicInteger(0);
         private int requested = 0;
 
@@ -99,7 +96,7 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
             } else {
                 success = queue.offer(t);
             }
-            if(!success) {
+            if (!success) {
                 // TODO schedule onto inner after clearing the queue and cancelling existing work
                 observer.onError(new IllegalStateException("Unable to queue onNext as queue full => " + SIZE + " items. Backpressure request ignored."));
                 return;
@@ -109,13 +106,17 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
 
         @Override
         public void onCompleted() {
-            queue.offer(COMPLETE_SENTINEL);
+            if (!queue.offer(COMPLETE_SENTINEL)) {
+                observer.onError(new IllegalStateException("Unable to queue onCompleted as queue full => " + SIZE + " items. Backpressure request ignored."));
+            }
             schedule();
         }
 
         @Override
         public void onError(final Throwable e) {
-            queue.offer(new ErrorSentinel(e));
+            if (!queue.offer(new ErrorSentinel(e))) {
+                observer.onError(new IllegalStateException("Unable to queue onCompleted as queue full => " + SIZE + " items. Backpressure request ignored."));
+            }
             schedule();
         }
 

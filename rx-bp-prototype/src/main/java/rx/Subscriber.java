@@ -141,19 +141,19 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
             this.s = s;
             this.request = numRef;
         }
-        
 
         public Request min(int num) {
+            System.out.println("min: " + request.get());
             if (this.request.get() < num) {
                 return this;
             }
-            return new Request(s, this.request);
+            return new Request(s, num);
         }
 
         public Request add(int num) {
             return new Request(s, this.request.addAndGet(num));
         }
-        
+
         public Request max(int num) {
             if (this.request.get() > num) {
                 return this;

@@ -89,10 +89,12 @@ public final class OperatorTake<T> implements Operator<T, T> {
 
             @Override
             public void setProducer(final Action1<Request> resume) {
+                System.out.println("*************** setProducer in take");
                 child.setProducer(new Action1<Request>() {
                     @Override
                     public void call(Request req) {
-                        resume.call(req.min(limit));
+                        System.out.println("*************** setProducer2 in take: " + limit);
+                        resume.call(req.min(limit-count));
                     }
                 });
             }
