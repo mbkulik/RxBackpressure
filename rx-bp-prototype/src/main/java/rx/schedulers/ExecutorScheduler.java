@@ -185,20 +185,5 @@ public class ExecutorScheduler extends Scheduler {
         public boolean isUnsubscribed() {
             return innerSubscription.isUnsubscribed();
         }
-
-        @Override
-        public void pause() {
-            innerSubscription.pause();
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return innerSubscription.isPaused();
-        }
-
-        @Override
-        public void resumeWith(Action0 resume) {
-            innerSubscription.resumeWith(resume);
-        }
     }
 }

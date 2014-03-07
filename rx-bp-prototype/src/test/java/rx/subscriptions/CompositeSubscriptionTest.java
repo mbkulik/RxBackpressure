@@ -306,15 +306,15 @@ public class CompositeSubscriptionTest {
             public void onNext(Integer t) {
             }
 
-            public void resume() {
-                super.resume();
+            public void request(int n) {
+                super.request(n);
             }
         }
         final EndSubscriber endSubscriber = new EndSubscriber();
-        endSubscriber.pause();
+        //endSubscriber.pause();
         mid.subscribe(endSubscriber);
         assertEquals(0, completedCount.get());
-        endSubscriber.resume();
+        endSubscriber.request(2);
         assertEquals(2, completedCount.get());
     }
 }

@@ -19,42 +19,34 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Observable;
 import rx.Subscription;
-import rx.functions.Action0;
+import rx.functions.Action1;
 
 /**
- * Subscription that can be checked for status such as in a loop inside an {@link Observable} to exit the loop if unsubscribed.
+ * Subscription that can be checked for status such as in a loop inside an {@link Observable} to
+ * exit the loop if unsubscribed.
  * 
- * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.disposables.multipleassignmentdisposable">Rx.Net equivalent MultipleAssignmentDisposable</a>
+ * @see <a
+ *      href="http://msdn.microsoft.com/en-us/library/system.reactive.disposables.multipleassignmentdisposable">Rx.Net
+ *      equivalent MultipleAssignmentDisposable</a>
  */
 public final class MultipleAssignmentSubscription implements Subscription {
-
-    private final AtomicReference<State> state = new AtomicReference<State>(new State(false, false, Subscriptions.empty()));
+    private final AtomicReference<State> state = new AtomicReference<State>(new State(false, Subscriptions.empty()));
 
     private static final class State {
         final boolean isUnsubscribed;
-        final boolean isPaused;
         final Subscription subscription;
 
-        State(boolean u, boolean p, Subscription s) {
+        State(boolean u, Subscription s) {
             this.isUnsubscribed = u;
-            this.isPaused = p;
             this.subscription = s;
         }
 
         State unsubscribe() {
-            return new State(true, isPaused, subscription);
-        }
-        
-        State pause() {
-            return new State(isUnsubscribed, true, subscription);
-        }
-        
-        public State resume() {
-            return new State(isUnsubscribed, false, subscription);
+            return new State(true, subscription);
         }
 
-        State set(Subscription s) {
-            return new State(isUnsubscribed, isPaused, s);
+        State set(Subscription subscription) {
+            return new State(isUnsubscribed, subscription);
         }
     }
 
@@ -75,46 +67,6 @@ public final class MultipleAssignmentSubscription implements Subscription {
             }
         } while (!state.compareAndSet(oldState, newState));
         oldState.subscription.unsubscribe();
-    }
-    
-    @Override
-    public boolean isPaused() {
-        return state.get().isPaused;
-    }
-    
-    @Override
-    public void pause() {
-        State oldState;
-        State newState;
-        do {
-            oldState = state.get();
-            if (oldState.isPaused) {
-                return;
-            } else {
-                newState = oldState.pause();
-            }
-        } while (!state.compareAndSet(oldState, newState));
-        oldState.subscription.pause();
-    }
-
-    @Override
-    public void resumeWith(final Action0 resume) {
-        state.get().subscription.resumeWith(new Action0() {
-            @Override
-            public void call() {
-                State oldState;
-                State newState;
-                do {
-                    oldState = state.get();
-                    if (!oldState.isPaused) {
-                        return;
-                    } else {
-                        newState = oldState.resume();
-                    }
-                } while (!state.compareAndSet(oldState, newState));
-                resume.call();
-            }
-        });
     }
 
     public void set(Subscription s) {
@@ -137,5 +89,4 @@ public final class MultipleAssignmentSubscription implements Subscription {
     public Subscription get() {
         return state.get().subscription;
     }
-
 }

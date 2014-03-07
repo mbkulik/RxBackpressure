@@ -15,7 +15,6 @@
  */
 package rx;
 
-import rx.functions.Action0;
 import rx.subscriptions.Subscriptions;
 
 /**
@@ -33,12 +32,6 @@ public interface Subscription {
      * This allows unregistering an {@link Subscriber} before it has finished receiving all events (ie. before onCompleted is called).
      */
     public void unsubscribe();
-    
+
     public boolean isUnsubscribed();
-
-    public void pause();
-
-    public boolean isPaused();
-    
-    public void resumeWith(Action0 resume);
 }

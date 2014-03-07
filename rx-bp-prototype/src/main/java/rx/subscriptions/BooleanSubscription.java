@@ -16,38 +16,41 @@
 package rx.subscriptions;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Observable;
 import rx.Subscription;
 import rx.functions.Action0;
+import rx.functions.Action1;
 
 /**
- * Subscription that can be checked for status such as in a loop inside an {@link Observable} to exit the loop if unsubscribed.
+ * Subscription that can be checked for status such as in a loop inside an {@link Observable} to
+ * exit the loop if unsubscribed.
  * 
- * @see <a href="http://msdn.microsoft.com/en-us/library/system.reactive.disposables.booleandisposable(v=vs.103).aspx">Rx.Net equivalent BooleanDisposable</a>
+ * @see <a
+ *      href="http://msdn.microsoft.com/en-us/library/system.reactive.disposables.booleandisposable(v=vs.103).aspx">Rx.Net
+ *      equivalent BooleanDisposable</a>
  */
 public final class BooleanSubscription implements Subscription {
 
     private final AtomicBoolean unsubscribed = new AtomicBoolean(false);
     private final Action0 unsubscribeAction;
-    private final AtomicBoolean paused = new AtomicBoolean(false);
-    private final Action0 pauseAction;
+    private final AtomicReference<Action1<Integer>> producer = new AtomicReference<Action1<Integer>>();
 
-    private BooleanSubscription(Action0 unsubscribeAction, Action0 pauseAction) {
+    private BooleanSubscription(Action0 unsubscribeAction) {
         this.unsubscribeAction = unsubscribeAction;
-        this.pauseAction = pauseAction;
     }
 
     public static BooleanSubscription create() {
-        return new BooleanSubscription(null, null);
+        return new BooleanSubscription(null);
     }
 
     public static BooleanSubscription create(Action0 onUnsubscribe) {
-        return new BooleanSubscription(onUnsubscribe, null);
+        return new BooleanSubscription(onUnsubscribe);
     }
 
     public static BooleanSubscription create(Action0 onUnsubscribe, Action0 onPause) {
-        return new BooleanSubscription(onUnsubscribe, onPause);
+        return new BooleanSubscription(onUnsubscribe);
     }
 
     public boolean isUnsubscribed() {
@@ -61,23 +64,5 @@ public final class BooleanSubscription implements Subscription {
                 unsubscribeAction.call();
             }
         }
-    }
-
-    @Override
-    public boolean isPaused() {
-        return paused.get();
-    }
-    
-    @Override
-    public void pause() {
-        if (paused.compareAndSet(false, true)) {
-            if (pauseAction != null)
-                pauseAction.call();
-        }
-    }
-    
-    @Override
-    public void resumeWith(Action0 resume) {
-        resume.call();
     }
 }

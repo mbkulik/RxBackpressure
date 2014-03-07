@@ -78,6 +78,7 @@ public class TestSubscriber<T> extends Subscriber<T> {
     @Override
     public void onError(Throwable e) {
         try {
+            e.printStackTrace();
             lastSeenThread = Thread.currentThread();
             testObserver.onError(e);
         } finally {
@@ -142,5 +143,10 @@ public class TestSubscriber<T> extends Subscriber<T> {
 
     public Thread getLastSeenThread() {
         return lastSeenThread;
+    }
+    
+    @Override
+    public void request(int n) {
+        super.request(n);
     }
 }

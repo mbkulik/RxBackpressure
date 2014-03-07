@@ -127,21 +127,6 @@ public class TestScheduler extends Scheduler {
         public boolean isUnsubscribed() {
             return s.isUnsubscribed();
         }
-        
-        @Override
-        public void pause() {
-            s.pause();
-        }
-        
-        @Override
-        public boolean isPaused() {
-            return s.isPaused();
-        }
-        
-        @Override
-        public void resumeWith(Action0 resume) {
-            s.resumeWith(resume);
-        }
 
         @Override
         public void schedule(Action1<Inner> action, long delayTime, TimeUnit unit) {

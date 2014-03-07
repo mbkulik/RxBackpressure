@@ -15,16 +15,18 @@
  */
 package rx.operators;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Observable.Operator;
 import rx.Scheduler;
 import rx.Scheduler.Inner;
 import rx.Subscriber;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.schedulers.ImmediateScheduler;
 import rx.schedulers.TrampolineScheduler;
+import rx.subscriptions.Subscriptions;
 
 /**
  * Delivers events on the specified Scheduler asynchronously via an unbounded buffer.
@@ -75,20 +77,32 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         final Subscriber<? super T> observer;
         private volatile Scheduler.Inner recursiveScheduler;
 
-        private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
-        final AtomicLong counter = new AtomicLong(0);
+        private static final int SIZE = 10;
+        private static final int THRESHOLD = 1;
+
+        private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(SIZE);
+        final AtomicInteger counter = new AtomicInteger(0);
+        private int requested = 0;
 
         public ObserveOnSubscriber(Subscriber<? super T> observer) {
             super(observer);
             this.observer = observer;
+            requested += SIZE;
+            request(SIZE);
         }
 
         @Override
         public void onNext(final T t) {
+            boolean success = false;
             if (t == null) {
-                queue.offer(NULL_SENTINEL);
+                success = queue.offer(NULL_SENTINEL);
             } else {
-                queue.offer(t);
+                success = queue.offer(t);
+            }
+            if(!success) {
+                // TODO schedule onto inner after clearing the queue and cancelling existing work
+                observer.onError(new IllegalStateException("Unable to queue onNext as queue full => " + SIZE + " items. Backpressure request ignored."));
+                return;
             }
             schedule();
         }
@@ -130,6 +144,9 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
             }
         }
 
+        /**
+         * This will be invoked by only a single thread, managed by the counter.increment/decrement
+         */
         @SuppressWarnings("unchecked")
         private void pollQueue() {
             do {
@@ -147,9 +164,14 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
                         observer.onNext((T) v);
                     }
                 }
-            } while (counter.decrementAndGet() > 0);
+                requested--;
+            } while (counter.decrementAndGet() > 0 && !observer.isUnsubscribed());
+            if (requested == 0) {
+                requested += SIZE;
+                System.err.println(">>> ObserveOn => Request More: " + SIZE + " requested: " + requested + " counter: " + counter.get());
+                request(SIZE);
+            }
         }
 
     }
-
 }

@@ -19,12 +19,14 @@ import java.util.Iterator;
 
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
-import rx.functions.Action0;
+import rx.Subscriber.Request;
+import rx.functions.Action1;
 
 /**
  * Converts an Iterable sequence into an Observable.
  * <p>
- * <img width="640" src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
+ * <img width="640"
+ * src="https://github.com/Netflix/RxJava/wiki/images/rx-Observers/toObservable.png">
  * <p>
  * You can convert any object that supports the Iterable interface into an Observable that emits
  * each item in the object, with the toObservable operation.
@@ -40,30 +42,28 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
     @Override
     public void call(final Subscriber<? super T> o) {
         final Iterator<? extends T> iter = is.iterator();
-        new Action0() {
+        Action1<Request> func = new Action1<Request>() {
             @Override
-            public void call() {
-                if (o.isUnsubscribed()) {
+            public void call(final Request r) {
+                System.out.println("**** OnSubscribe start: " + r);
+                if (!r.countDown())
                     return;
-                }
-                if (o.isPaused()) {
-                    o.resumeWith(this);
-                    return;
-                }
-                while(iter.hasNext()) {
+
+                while (iter.hasNext()) {
                     final T value = iter.next();
+                    System.err.println("p t = " + value + " thread " + Thread.currentThread());
                     o.onNext(value);
-                    if (o.isUnsubscribed()) {
+
+                    if (!r.countDown())
                         return;
-                    }
-                    if (o.isPaused()) {
-                        o.resumeWith(this);
-                        return;
-                    }
                 }
+                System.out.println("*** onCompleted");
                 o.onCompleted();
             }
-        }.call();
-    }
 
+        };
+
+        System.out.println("**** OnSubscribe setProducer: " + func);
+        o.setProducer(func);
+    }
 }
