@@ -108,11 +108,6 @@ public class TrampolineScheduler extends Scheduler {
         public boolean isUnsubscribed() {
             return innerSubscription.isUnsubscribed();
         }
-
-        @Override
-        public void setProducer(Action1<Integer> resume) {
-            innerSubscription.setProducer(resume);
-        }
     }
 
     private static class TimedAction implements Comparable<TimedAction> {

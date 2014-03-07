@@ -78,6 +78,7 @@ public class TestSubscriber<T> extends Subscriber<T> {
     @Override
     public void onError(Throwable e) {
         try {
+            e.printStackTrace();
             lastSeenThread = Thread.currentThread();
             testObserver.onError(e);
         } finally {

@@ -15,6 +15,8 @@
  */
 package rx;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import rx.functions.Action1;
 import rx.subscriptions.CompositeSubscription;
 
@@ -48,8 +50,14 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         this(new CompositeSubscription(), null);
     }
 
-    protected Subscriber(Subscriber<?> op) {
+    protected Subscriber(final Subscriber<?> op) {
         this(op.cs, op);
+        setProducer(new Action1<Integer>() {
+            @Override
+            public void call(Integer n) {
+                op.request(n);
+            }
+        });
     }
 
     protected Subscriber(CompositeSubscription cs) {
@@ -72,11 +80,26 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         return cs.isUnsubscribed();
     }
 
-    protected void request(int n) {
-        cs.request(n);
+    private AtomicInteger n = new AtomicInteger(-1);
+
+    public void request(int n) {
+        int oldN;
+        int newN = -1;
+        do {
+            oldN = this.n.get();
+            if (oldN == -1) {
+                newN = n == -1 ? -1 : n;
+            }
+        } while (this.n.compareAndSet(oldN, newN));
+
+        if (producer != null) {
+            producer.call(n);
+        }
     }
 
-    public void setProducer(Action1<Integer> resume) {
-        cs.setProducer(resume);
+    private Action1<Integer> producer = null;
+
+    public void setProducer(Action1<Integer> producer) {
+        this.producer = producer;
     }
 }

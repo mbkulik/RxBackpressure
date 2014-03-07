@@ -65,9 +65,4 @@ public final class BooleanSubscription implements Subscription {
             }
         }
     }
-
-    @Override
-    public void setProducer(Action1<Integer> producer) {
-        this.producer.set(producer);
-    }
 }

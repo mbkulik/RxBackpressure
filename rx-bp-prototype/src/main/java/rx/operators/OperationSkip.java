@@ -15,20 +15,12 @@
  */
 package rx.operators;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Observable;
-import rx.Observable.OnSubscribe;
 import rx.Observable.OnSubscribeFunc;
 import rx.Observer;
-import rx.Scheduler;
-import rx.Subscriber;
-import rx.Scheduler.Inner;
 import rx.Subscription;
-import rx.functions.Action1;
-import rx.subscriptions.CompositeSubscription;
 
 /**
  * Returns an Observable that skips the first <code>num</code> items emitted by the source

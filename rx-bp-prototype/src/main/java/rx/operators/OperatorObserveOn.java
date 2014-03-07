@@ -140,6 +140,7 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         @SuppressWarnings("unchecked")
         private void pollQueue() {
             int r = requested.get();
+            int dr = 0;
             while (r > 0) {
                 do {
                     Object v = queue.poll();
@@ -159,12 +160,15 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
                     r = requested.decrementAndGet();
                     if (r <= THRESHOLD) {
                         System.err.println("break " + r);
+                        dr = SIZE - r;
+                        r = requested.addAndGet(dr);
                         break;
                     }
                 } while (counter.decrementAndGet() > 0 && !observer.isUnsubscribed());
-                int dr = SIZE - r;
-                r = requested.addAndGet(dr);
-                request(dr);
+                if (dr > 0) {
+                    request(dr);
+                    dr = 0;
+                }
             }
         }
     }

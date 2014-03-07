@@ -15,7 +15,6 @@
  */
 package rx;
 
-import rx.functions.Action1;
 import rx.subscriptions.Subscriptions;
 
 /**
@@ -35,6 +34,4 @@ public interface Subscription {
     public void unsubscribe();
 
     public boolean isUnsubscribed();
-
-    public void setProducer(Action1<Integer> producer);
 }

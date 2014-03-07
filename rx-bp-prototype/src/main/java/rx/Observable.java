@@ -55,7 +55,6 @@ import rx.operators.OperatorSingle;
 import rx.operators.OperatorSubscribeOn;
 import rx.operators.OperatorTake;
 import rx.operators.OperatorToObservableList;
-import rx.operators.OperatorWhilePaused;
 import rx.operators.OperatorZip;
 import rx.subscriptions.Subscriptions;
 
@@ -212,7 +211,17 @@ public class Observable<T> {
             @Override
             public void call(Subscriber<? super R> o) {
                 try {
-                    f.call(lift.call(o));
+                    final Subscriber<? super T> i = lift.call(o);
+
+                    o.setProducer(new Action1<Integer>() {
+                        @Override
+                        public void call(Integer n) {
+                            System.err.println("chained request "+ n);
+                            i.request(n);
+                        }
+                    });
+
+                    f.call(i);
                 } catch (Throwable e) {
                     // localized capture of errors rather than it skipping all operators 
                     // and ending up in the try/catch of the subscribe method which then
@@ -2058,22 +2067,6 @@ public class Observable<T> {
      */
     public final <T2, R> Observable<R> zip(Observable<? extends T2> other, Func2<? super T, ? super T2, ? extends R> zipFunction) {
         return zip(this, other, zipFunction);
-    }
-
-    public final Observable<T> whilePausedDrop() {
-        return lift((Operator<T, T>) OperatorWhilePaused.DROP);
-    }
-
-    public final Observable<T> whilePausedBlock() {
-        return lift((Operator<T, T>) OperatorWhilePaused.BLOCK);
-    }
-
-    public final Observable<T> whilePausedBuffer() {
-        return lift((Operator<T, T>) OperatorWhilePaused.BUFFER);
-    }
-
-    public final Observable<T> whilePausedUnsubscribe() {
-        return lift(new OperatorWhilePaused.Unsubscribe<T>(this));
     }
 
     /**

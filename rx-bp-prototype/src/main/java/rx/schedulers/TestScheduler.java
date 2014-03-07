@@ -127,11 +127,6 @@ public class TestScheduler extends Scheduler {
         public boolean isUnsubscribed() {
             return s.isUnsubscribed();
         }
-        
-        @Override
-        public void setProducer(Action1<Integer> producer) {
-            s.setProducer(producer);
-        }
 
         @Override
         public void schedule(Action1<Inner> action, long delayTime, TimeUnit unit) {

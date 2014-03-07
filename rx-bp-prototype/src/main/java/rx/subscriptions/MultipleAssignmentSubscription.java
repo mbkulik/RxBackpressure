@@ -30,40 +30,23 @@ import rx.functions.Action1;
  *      equivalent MultipleAssignmentDisposable</a>
  */
 public final class MultipleAssignmentSubscription implements Subscription {
-
-    private final AtomicReference<State> state = new AtomicReference<State>(new State(false, Subscriptions.empty(), null, -1));
+    private final AtomicReference<State> state = new AtomicReference<State>(new State(false, Subscriptions.empty()));
 
     private static final class State {
         final boolean isUnsubscribed;
         final Subscription subscription;
-        final Action1<Integer> producer;
-        final int n;
 
-        State(boolean u, Subscription s, Action1<Integer> p, int n) {
+        State(boolean u, Subscription s) {
             this.isUnsubscribed = u;
             this.subscription = s;
-            this.producer = p;
-            this.n = n;
         }
 
         State unsubscribe() {
-            return new State(true, subscription, null, 0);
-        }
-
-        State pause() {
-            return new State(isUnsubscribed, subscription, producer, 0);
-        }
-
-        State resume(int n) {
-            return new State(isUnsubscribed, subscription, producer, n);
-        }
-
-        State setProducer(Action1<Integer> producer) {
-            return new State(isUnsubscribed, subscription, producer, n);
+            return new State(true, subscription);
         }
 
         State set(Subscription subscription) {
-            return new State(isUnsubscribed, subscription, producer, n);
+            return new State(isUnsubscribed, subscription);
         }
     }
 
@@ -84,26 +67,6 @@ public final class MultipleAssignmentSubscription implements Subscription {
             }
         } while (!state.compareAndSet(oldState, newState));
         oldState.subscription.unsubscribe();
-    }
-
-    @Override
-    public void setProducer(final Action1<Integer> producer) {
-        state.get().subscription.setProducer(new Action1<Integer>() {
-            @Override
-            public void call(Integer n) {
-                State oldState;
-                State newState;
-                do {
-                    oldState = state.get();
-                    if (oldState.n != 0) {
-                        return;
-                    } else {
-                        newState = oldState.resume(n);
-                    }
-                } while (!state.compareAndSet(oldState, newState));
-                producer.call(n);
-            }
-        });
     }
 
     public void set(Subscription s) {

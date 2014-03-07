@@ -149,10 +149,5 @@ public class NewThreadScheduler extends Scheduler {
         public boolean isUnsubscribed() {
             return innerSubscription.isUnsubscribed();
         }
-
-        @Override
-        public void setProducer(Action1<Integer> resume) {
-            innerSubscription.setProducer(resume);
-        }
     }
 }

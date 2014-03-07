@@ -65,10 +65,6 @@ public final class Subscriptions {
             public boolean isUnsubscribed() {
                 return f.isCancelled();
             }
-            
-            @Override
-            public void setProducer(Action1<Integer> resume) {
-            }
         };
     }
 
@@ -94,11 +90,6 @@ public final class Subscriptions {
         @Override
         public boolean isUnsubscribed() {
             return false;
-        }
-        
-
-        @Override
-        public void setProducer(Action1<Integer> resume) {
         }
     };
 }
