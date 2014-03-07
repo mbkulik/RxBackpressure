@@ -18,7 +18,9 @@ package rx.operators;
 import rx.Observable.Operator;
 import rx.Subscriber;
 import rx.exceptions.OnErrorThrowable;
+import rx.functions.Action0;
 import rx.functions.Func1;
+import rx.subscriptions.Subscriptions;
 
 /**
  * Applies a function of your choosing to every item emitted by an Observable, and returns this

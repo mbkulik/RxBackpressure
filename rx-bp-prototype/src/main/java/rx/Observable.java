@@ -39,7 +39,7 @@ import rx.observables.GroupedObservable;
 import rx.observers.SafeSubscriber;
 import rx.operators.OnSubscribeFromIterable;
 import rx.operators.OperationInterval;
-import rx.operators.OperationSkip;
+import rx.operators.OperatorSkip;
 import rx.operators.OperationThrottleFirst;
 import rx.operators.OperatorDematerialize;
 import rx.operators.OperatorDoOnEach;
@@ -263,7 +263,7 @@ public class Observable<T> {
     }
 
     public final Observable<T> skip(int num) {
-        return create(OperationSkip.skip(this, num));
+        return lift(new OperatorSkip(num));
     }
     
     public final static <T> Observable<T> just(T value) {

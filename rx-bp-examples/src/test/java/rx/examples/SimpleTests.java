@@ -86,6 +86,26 @@ public class SimpleTests {
     }
 
     @Test
+    public void skipObserveOnSubscribe() {
+        TestSubscriber<Integer> ts = new TestSubscriber<Integer>();
+        Observable.from(0, 1, 2, 3, 4, 5, 6, 7, 8, 9).skip(8).observeOn(Schedulers.newThread()).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        System.out.println("Received => " + ts.getOnNextEvents());
+        ts.assertReceivedOnNext(Arrays.asList(8, 9));
+    }
+
+    @Test
+    public void skipObserveOnSkipSubscribe() {
+        TestSubscriber<Integer> ts = new TestSubscriber<Integer>();
+        Observable.from(0, 1, 2, 3, 4, 5, 6, 7, 8, 9).skip(2).observeOn(Schedulers.newThread()).skip(4).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        System.out.println("Received => " + ts.getOnNextEvents());
+        ts.assertReceivedOnNext(Arrays.asList(6, 7, 8, 9));
+    }
+
+    @Test
     public void testIterableAcrossThread() {
         final AtomicInteger sentCount = new AtomicInteger();
         final AtomicInteger receivedCount = new AtomicInteger();

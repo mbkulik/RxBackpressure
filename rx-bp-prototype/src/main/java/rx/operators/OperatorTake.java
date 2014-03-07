@@ -86,10 +86,15 @@ public final class OperatorTake<T> implements Operator<T, T> {
                     }
                 }
             }
-            
+
             @Override
-            public void setProducer(Action1<Integer> resume) {
-                child.setProducer(resume);
+            public void setProducer(final Action1<Request> resume) {
+                child.setProducer(new Action1<Request>() {
+                    @Override
+                    public void call(Request req) {
+                        resume.call(req.min(limit));
+                    }
+                });
             }
         };
     }

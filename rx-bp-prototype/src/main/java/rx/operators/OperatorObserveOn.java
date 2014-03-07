@@ -22,9 +22,11 @@ import rx.Observable.Operator;
 import rx.Scheduler;
 import rx.Scheduler.Inner;
 import rx.Subscriber;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.schedulers.ImmediateScheduler;
 import rx.schedulers.TrampolineScheduler;
+import rx.subscriptions.Subscriptions;
 
 /**
  * Delivers events on the specified Scheduler asynchronously via an unbounded buffer.
@@ -91,10 +93,16 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
 
         @Override
         public void onNext(final T t) {
+            boolean success = false;
             if (t == null) {
-                queue.offer(NULL_SENTINEL);
+                success = queue.offer(NULL_SENTINEL);
             } else {
-                queue.offer(t);
+                success = queue.offer(t);
+            }
+            if(!success) {
+                // TODO schedule onto inner after clearing the queue and cancelling existing work
+                observer.onError(new IllegalStateException("Unable to queue onNext as queue full => " + SIZE + " items. Backpressure request ignored."));
+                return;
             }
             schedule();
         }

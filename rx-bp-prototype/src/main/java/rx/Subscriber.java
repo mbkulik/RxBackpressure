@@ -15,6 +15,7 @@
  */
 package rx;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import rx.functions.Action1;
@@ -88,73 +89,116 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         } while (!state.compareAndSet(previous, newState));
         if (intermediate.p != null && intermediate.n > 0) {
             // we have both P and N and won the claim so invoke
-            System.err.print("Subscriber => request => producer.call in " + this);
-            intermediate.p.call(intermediate.n);
+            System.err.println("Subscriber => request => producer.call in " + this);
+            intermediate.p.call(new Request(this, intermediate.n));
         }
     }
 
-    public void setProducer(Action1<Integer> producer) {
+    public void pauseProducer() {
+        System.out.println("Pausing producer: state => " + state.get().n + " p : " + state.get().p);
+    }
+
+    public void setProducer(Action1<Request> producer) {
         if (op == null) {
             // end of chain, we must run
-            int claimed = claim();
+            int claimed = claim(producer);
+            System.out.println("setProducer: " + claimed);
             if (claimed > 0) {
                 // use count if we have it
-                producer.call(claimed);
+                producer.call(new Request(this, claimed));
             } else {
+                System.out.println("run with infinite");
                 // otherwise we must run when at the end of the chain
-                producer.call(-1);
+                producer.call(new Request(this, State.INFINITE));
             }
         } else {
             // middle operator ... we pass thru unless a request has been made
 
             // if we have a non-0 value we will run as that means this operator has expressed interest
-            int claimed = claim();
+            int claimed = claim(producer);
             if (claimed == State.NOT_SET) {
                 // we pass-thru to the next producer as it has not been set
-                System.err.print("Subscriber => pass thru from " + this + "  to  " + op);
+                System.err.println("Subscriber => pass thru from " + this + "  to  " + op);
                 op.setProducer(producer);
             } else if (claimed != State.PAUSED) {
                 // it has been set and is not paused so we'll execute
-                System.err.print("Subscriber => setProducer => producer.call in " + this);
-                producer.call(claimed);
-            } else {
-                // save it for when more is requested
-                saveProducer(producer);
+                System.err.println("Subscriber => setProducer => producer.call in " + this);
+                producer.call(new Request(this, claimed));
             }
         }
     }
 
-    private int claim() {
-        State previous;
-        State newState;
-        do {
-            previous = state.get();
-            newState = previous.claim();
-        } while (!state.compareAndSet(previous, newState));
-        return previous.n;
+    public static final class Request {
+
+        private final Subscription s;
+        private final AtomicInteger request;
+
+        private Request(Subscription s, int num) {
+            this(s, new AtomicInteger(num));
+        }
+
+        private Request(Subscription s, AtomicInteger numRef) {
+            this.s = s;
+            this.request = numRef;
+        }
+        
+
+        public Request min(int num) {
+            if (this.request.get() < num) {
+                return this;
+            }
+            return new Request(s, this.request);
+        }
+
+        public Request add(int num) {
+            return new Request(s, this.request.addAndGet(num));
+        }
+        
+        public Request max(int num) {
+            if (this.request.get() > num) {
+                return this;
+            }
+            return new Request(s, this.request);
+        }
+
+        public final boolean countDown() {
+            if (s.isUnsubscribed()) {
+                return false;
+            }
+            if (request.get() == State.INFINITE) {
+                // infinite
+                return true;
+            }
+            return request.getAndDecrement() != 0;
+        }
+
+        @Override
+        public String toString() {
+            return "Subscriber.Request => unsubscribed: " + s.isUnsubscribed() + " numRequested: " + request.get();
+        }
     }
 
-    private State saveProducer(Action1<Integer> producer) {
+    private int claim(Action1<Request> producer) {
         State previous;
         State newState;
         do {
             previous = state.get();
-            newState = previous.producer(producer);
+            newState = previous.claim(producer);
         } while (!state.compareAndSet(previous, newState));
-        return newState;
+        return previous.n;
     }
 
     private final AtomicReference<State> state = new AtomicReference<State>(State.create());
 
     private static class State {
         private final int n;
-        private final Action1<Integer> p;
+        private final Action1<Request> p;
 
         private final static int PAUSED = 0;
         private final static int INFINITE = -1;
         private final static int NOT_SET = -2;
 
-        public State(int n, Action1<Integer> p) {
+        public State(int n, Action1<Request> p) {
             this.n = n;
             this.p = p;
         }
@@ -172,6 +216,14 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
             return new State(newN, p);
         }
 
+        public State claim(Action1<Request> producer) {
+            if (n == -2) {
+                return new State(-2, producer);
+            } else {
+                return new State(0, producer);
+            }
+        }
+
         public State claim() {
             if (n == -2) {
                 return this; // not set so return as is
@@ -180,7 +232,7 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
             }
         }
 
-        public State producer(Action1<Integer> _p) {
+        public State producer(Action1<Request> _p) {
             return new State(n, _p);
         }
 
