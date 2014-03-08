@@ -4,11 +4,16 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicLong;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Scheduler.Inner;
 import rx.Subscriber;
 import rx.Subscriber.Request;
 import rx.Subscription;
+import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 import rx.subscriptions.Subscriptions;
 
 public class Sources {
@@ -68,6 +73,46 @@ public class Sources {
             }
 
         };
+    }
+
+    public static Observable<Long> asyncInfinite() {
+        return Observable.create(new OnSubscribe<Long>() {
+
+            @Override
+            public void call(final Subscriber<? super Long> s) {
+                System.out.println("asyncInfinite => schedule asyncInfinite request outer => invoked from: " + Thread.currentThread());
+                // TODO would be cleaner if we could just get the Scheduler.Inner directly
+                s.add(Schedulers.newThread().schedule(new Action1<Inner>() {
+
+                    @Override
+                    public void call(Inner inner) {
+                        System.out.println("asyncInfinite =>  schedule asyncInfinite request inner => invoked from: " + Thread.currentThread());
+                        final AtomicLong l = new AtomicLong();
+                        s.setProducer(new Action1<Request>() {
+
+                            @Override
+                            public void call(final Request r) {
+                                System.out.println("asyncInfinite =>  run asyncInfinite request: " + r + " => invoked from: " + Thread.currentThread());
+                                // whenever a request happens in we want to run on the inner scheduler
+                                inner.schedule(new Action1<Inner>() {
+
+                                    @Override
+                                    public void call(Inner t1) {
+                                        while (r.countDown()) {
+                                            s.onNext(l.incrementAndGet());
+                                        }
+                                    }
+
+                                });
+                            }
+
+                        });
+                    }
+
+                }));
+            }
+
+        });
     }
 
     public static Observable<String> getFileWithoutBackpressureSupport() {

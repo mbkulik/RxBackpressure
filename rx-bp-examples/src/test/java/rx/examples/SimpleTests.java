@@ -5,6 +5,7 @@ import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
 
@@ -200,9 +201,53 @@ public class SimpleTests {
         long diff = sentCount.get() - receivedCount.get();
         System.out.println("testSkipThenTakeAfterObserveOn => sent: " + sentCount.get() + " received: " + receivedCount.get());
         if (diff != 5005) { // since take happens AFTER observeOn it can't be exact in the request size so we fetch batches of 10 ... so 10+10+10 to achieve 25 = 5 extra
-            fail("Expected exactly 18 requested with 6 delivered but got diff of: " + diff);
+            fail("Backpressure diff wrong: " + diff);
         }
         assertEquals(5030, sentCount.get());
         assertEquals(25, receivedCount.get());
+    }
+
+    @Test
+    public void testAsyncInfiniteThatCorrectlySchedulesItself() {
+        final AtomicInteger sentCount = new AtomicInteger();
+        final AtomicInteger receivedCount = new AtomicInteger();
+        final AtomicReference<Thread> emittedThread = new AtomicReference<Thread>();
+        final AtomicReference<Thread> receivedThread = new AtomicReference<Thread>();
+        TestSubscriber<Long> ts = new TestSubscriber<Long>();
+
+        Sources.asyncInfinite().map((i) -> {
+            sentCount.incrementAndGet();
+            if (emittedThread.get() == null) {
+                emittedThread.set(Thread.currentThread());
+            } else {
+                if (emittedThread.get() != Thread.currentThread()) {
+                    System.err.println("*************** Should not have seen different threads");
+                    throw new RuntimeException("Producer Thread should not change");
+                }
+            }
+            return "Value_" + i;
+        }).skip(5000).observeOn(Schedulers.newThread()).map((s) -> {
+            receivedCount.incrementAndGet();
+            if (receivedThread.get() == null) {
+                receivedThread.set(Thread.currentThread());
+            } else {
+                if (receivedThread.get() != Thread.currentThread()) {
+                    System.err.println("*************** Should not have seen different threads");
+                    throw new RuntimeException("Receiver Thread should not change");
+                }
+            }
+            // simulate doing computational work
+                return Util.busyWork(1000);
+            }).take(255).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        assertEquals(5260, sentCount.get()); // 5255 is smallest possible ... round up due to buffer of 10
+        assertEquals(255, receivedCount.get());
+
+        long diff = sentCount.get() - receivedCount.get();
+        System.out.println("testAsyncInfiniteThatCorrectlySchedulesItself => sent: " + sentCount.get() + " received: " + receivedCount.get());
+        if (diff != 5005) { // since take happens AFTER observeOn it can't be exact in the request size so we fetch batches of 10 ... so 10+10+10 to achieve 25 = 5 extra
+            fail("Backpressure diff wrong: " + diff);
+        }
     }
 }
