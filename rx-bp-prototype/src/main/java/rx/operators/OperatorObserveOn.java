@@ -18,13 +18,15 @@ package rx.operators;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import rx.Observable.Operator;
 import rx.Scheduler;
-import rx.Scheduler.Inner;
 import rx.Subscriber;
+import rx.Observable.Operator;
+import rx.Scheduler.Inner;
+import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.schedulers.ImmediateScheduler;
 import rx.schedulers.TrampolineScheduler;
+import rx.subscriptions.Subscriptions;
 
 /**
  * Delivers events on the specified Scheduler asynchronously via an unbounded buffer.
@@ -74,7 +76,6 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
     private class ObserveOnSubscriber extends Subscriber<T> {
         final Subscriber<? super T> observer;
         private volatile Scheduler.Inner recursiveScheduler;
-
         private static final int SIZE = 10;
 
         private final ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<Object>(SIZE + 1); // +1 for onCompleted if onNext fills buffer
@@ -82,10 +83,18 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         private int requested = 0;
 
         public ObserveOnSubscriber(Subscriber<? super T> observer) {
-            super(observer);
             this.observer = observer;
             requested += SIZE;
             request(SIZE);
+            observer.add(Subscriptions.create(new Action0() {
+
+                @Override
+                public void call() {
+                    // propagate unsubscribe from child to parent
+                    unsubscribe();
+                }
+
+            }));
         }
 
         @Override
@@ -114,8 +123,12 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
 
         @Override
         public void onError(final Throwable e) {
+            unsubscribe(); // unsubscribe upwards to shut down (do this here so we don't have delay across threads of final SafeSubscriber doing this)
+
+            queue.clear(); // is this the right way to deal with this? it's the equivalent of tearing down the stack which is what we want
+            // TODO schedule onto inner after clearing the queue and cancelling existing work
             if (!queue.offer(new ErrorSentinel(e))) {
-                observer.onError(new IllegalStateException("Unable to queue onCompleted as queue full => " + SIZE + " items. Backpressure request ignored."));
+                observer.onError(new IllegalStateException("Unable to queue onError as queue full => " + SIZE + " items. Backpressure request ignored."));
             }
             schedule();
         }
@@ -123,7 +136,9 @@ public class OperatorObserveOn<T> implements Operator<T, T> {
         protected void schedule() {
             if (counter.getAndIncrement() == 0) {
                 if (recursiveScheduler == null) {
-                    add(scheduler.schedule(new Action1<Inner>() {
+                    // attach subscription to child so when it is cleaned up this gets cleaned up
+                    // don't attach to this (parent) as unsubscribing up should not prevent terminal events from sending
+                    observer.add(scheduler.schedule(new Action1<Inner>() {
 
                         @Override
                         public void call(Inner inner) {

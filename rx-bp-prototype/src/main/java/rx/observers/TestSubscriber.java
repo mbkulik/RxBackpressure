@@ -144,9 +144,21 @@ public class TestSubscriber<T> extends Subscriber<T> {
     public Thread getLastSeenThread() {
         return lastSeenThread;
     }
-    
+
     @Override
     public void request(int n) {
         super.request(n);
+    }
+
+    public void assertOnCompleted() {
+        if (testObserver.getOnCompletedEvents().size() == 0) {
+            if (testObserver.getOnErrorEvents().size() > 0) {
+                throw new AssertionError("No onComplete received. Error occurred.");
+            } else if (isUnsubscribed()) {
+                throw new AssertionError("No onComplete received. Unsubscribed.");
+            } else {
+                throw new AssertionError("No onComplete received (nor error or unsubscribe).");
+            }
+        }
     }
 }

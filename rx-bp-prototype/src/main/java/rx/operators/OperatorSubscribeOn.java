@@ -37,25 +37,7 @@ public class OperatorSubscribeOn<T> implements Operator<T, Observable<T>> {
 
     @Override
     public Subscriber<? super Observable<T>> call(final Subscriber<? super T> subscriber) {
-        final Subscriber<T> foo = new Subscriber<T>(subscriber) {
-
-            @Override
-            public void onCompleted() {
-                subscriber.onCompleted();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                subscriber.onError(e);
-            }
-
-            @Override
-            public void onNext(T t) {
-                subscriber.onNext(t);
-            }
-        };
-        return new Subscriber<Observable<T>>(foo) {
-            volatile Inner _inner = null;
+        return new Subscriber<Observable<T>>(subscriber) {
 
             @Override
             public void onCompleted() {
@@ -69,15 +51,55 @@ public class OperatorSubscribeOn<T> implements Operator<T, Observable<T>> {
 
             @Override
             public void onNext(final Observable<T> o) {
+                System.out.println("onNext in SubscribeOn <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
                 subscriber.add(scheduler.schedule(new Action1<Inner>() {
 
                     @Override
                     public void call(final Inner inner) {
-                        _inner = inner;
-                        o.subscribe(foo);
+                        System.out.println("******************* subscribe");
+                        o.unsafeSubscribe(new Subscriber<T>() {
+
+                            @Override
+                            public void onCompleted() {
+                                subscriber.onCompleted();
+                            }
+
+                            @Override
+                            public void onError(Throwable e) {
+                                subscriber.onError(e);
+                            }
+
+                            @Override
+                            public void onNext(T t) {
+                                subscriber.onNext(t);
+                            }
+
+                            @Override
+                            public void setProducer(final Action1<rx.Subscriber.Request> producer) {
+                                subscriber.setProducer(new Action1<Request>() {
+
+                                    @Override
+                                    public void call(final rx.Subscriber.Request r) {
+                                        inner.schedule(new Action1<Inner>() {
+
+                                            @Override
+                                            public void call(Inner inner) {
+                                                producer.call(r);
+                                            }
+
+                                        });
+
+                                    }
+
+                                });
+
+                            }
+
+                        });
                     }
                 }));
             }
+
         };
     }
 }

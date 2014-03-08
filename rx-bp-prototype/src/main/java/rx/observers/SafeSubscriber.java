@@ -152,6 +152,7 @@ public class SafeSubscriber<T> extends Subscriber<T> {
         }
         // if we did not throw above we will unsubscribe here, if onError failed then unsubscribe happens in the catch
         try {
+            System.out.println("(((((((((((((((((((( unsubscribe");
             unsubscribe();
         } catch (RuntimeException unsubscribeException) {
             throw unsubscribeException;

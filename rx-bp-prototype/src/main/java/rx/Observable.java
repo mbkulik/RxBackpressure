@@ -763,6 +763,10 @@ public class Observable<T> {
         return merge(from(sequences, scheduler));
     }
 
+    public final void unsafeSubscribe(Subscriber<? super T> s) {
+        f.call(s);
+    }
+    
     /**
      * Convert the current {@code Observable<T>} into an {@code Observable<Observable<T>>}.
      * <p>
@@ -771,7 +775,16 @@ public class Observable<T> {
      * @return an Observable that emits a single item: the source Observable
      */
     public final Observable<Observable<T>> nest() {
-        return from(this);
+        final Observable<T> _self = this;
+        return Observable.create(new OnSubscribe<Observable<T>>() {
+
+            @Override
+            public void call(Subscriber<? super Observable<T>> s) {
+                s.onNext(_self);
+                s.onCompleted();
+            }
+
+        });
     }
 
     /**

@@ -17,6 +17,8 @@ package rx.operators;
 
 import java.util.Iterator;
 
+import com.sun.org.apache.bcel.internal.generic.ISUB;
+
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.Subscriber.Request;
@@ -45,25 +47,25 @@ public final class OnSubscribeFromIterable<T> implements OnSubscribe<T> {
         Action1<Request> func = new Action1<Request>() {
             @Override
             public void call(final Request r) {
-                System.out.println("**** OnSubscribe start: " + r);
+                System.out.println("**** OnSubscribeFromIterable => OnSubscribe start: " + r);
                 if (!r.countDown())
                     return;
 
                 while (iter.hasNext()) {
                     final T value = iter.next();
-                    System.err.println("p t = " + value + " thread " + Thread.currentThread());
+                    System.err.println("OnSubscribeFromIterable => p t = " + value + " thread " + Thread.currentThread());
                     o.onNext(value);
 
                     if (!r.countDown())
                         return;
                 }
-                System.out.println("*** onCompleted");
+                System.out.println("*** OnSubscribeFromIterable => onCompleted");
                 o.onCompleted();
             }
 
         };
 
-        System.out.println("**** OnSubscribe setProducer: " + func);
+        System.out.println("**** OnSubscribeFromIterable => OnSubscribe setProducer: " + func);
         o.setProducer(func);
     }
 }

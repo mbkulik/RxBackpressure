@@ -250,4 +250,49 @@ public class SimpleTests {
             fail("Backpressure diff wrong: " + diff);
         }
     }
+
+    @Test
+    public void testInfiniteMadeAsyncViaSubscribeOn() {
+        final AtomicInteger sentCount = new AtomicInteger();
+        final AtomicInteger receivedCount = new AtomicInteger();
+        final AtomicReference<Thread> emittedThread = new AtomicReference<Thread>();
+        final AtomicReference<Thread> receivedThread = new AtomicReference<Thread>();
+        TestSubscriber<Long> ts = new TestSubscriber<Long>();
+
+        Observable.from(Sources.infinite()).subscribeOn(Schedulers.newThread()).map((i) -> {
+            sentCount.incrementAndGet();
+            if (emittedThread.get() == null) {
+                emittedThread.set(Thread.currentThread());
+            } else {
+                if (emittedThread.get() != Thread.currentThread()) {
+                    System.err.println("*************** Should not have seen different threads");
+                    throw new RuntimeException("Producer Thread should not change");
+                }
+            }
+            return "Value_" + i;
+        }).observeOn(Schedulers.newThread()).map((s) -> {
+            receivedCount.incrementAndGet();
+            if (receivedThread.get() == null) {
+                receivedThread.set(Thread.currentThread());
+            } else {
+                if (receivedThread.get() != Thread.currentThread()) {
+                    System.err.println("*************** Should not have seen different threads");
+                    throw new RuntimeException("Receiver Thread should not change");
+                }
+            }
+            // simulate doing computational work
+                return Util.busyWork(1000);
+            }).take(20).subscribe(ts);
+
+        ts.awaitTerminalEvent();
+        ts.assertOnCompleted();
+        assertEquals(20, sentCount.get());
+        assertEquals(20, receivedCount.get());
+
+        long diff = sentCount.get() - receivedCount.get();
+        System.out.println("testInfiniteMadeAsyncViaSubscribeOn => sent: " + sentCount.get() + " received: " + receivedCount.get());
+        if (diff != 0) {
+            fail("Backpressure diff wrong: " + diff);
+        }
+    }
 }

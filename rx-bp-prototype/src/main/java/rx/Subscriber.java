@@ -94,10 +94,6 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         }
     }
 
-    public void pauseProducer() {
-        System.out.println("Pausing producer: state => " + state.get().n + " p : " + state.get().p);
-    }
-
     public void setProducer(Action1<Request> producer) {
         if (op == null) {
             // end of chain, we must run
