@@ -311,7 +311,7 @@ public class CompositeSubscriptionTest {
             }
         }
         final EndSubscriber endSubscriber = new EndSubscriber();
-        //endSubscriber.pause();
+        endSubscriber.request(0); 
         mid.subscribe(endSubscriber);
         assertEquals(0, completedCount.get());
         endSubscriber.request(2);
