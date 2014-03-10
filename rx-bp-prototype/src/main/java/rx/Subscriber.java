@@ -99,7 +99,7 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
             // end of chain, we must run
             int claimed = claim(producer);
             System.out.println("setProducer: " + claimed);
-            if (claimed > 0) {
+            if (claimed >= 0) {
                 // use count if we have it
                 producer.call(new Request(this, claimed));
             } else {
