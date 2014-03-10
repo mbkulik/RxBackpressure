@@ -293,6 +293,26 @@ public class Observable<T> {
         return Observable.<T> empty().subscribeOn(scheduler);
     }
 
+    public final Observable<T> doOnError(final Action1<Throwable> onError) {
+        Observer<T> observer = new Observer<T>() {
+            @Override
+            public final void onCompleted() {
+            }
+
+            @Override
+            public final void onError(Throwable e) {
+                onError.call(e);
+            }
+
+            @Override
+            public final void onNext(T args) {
+            }
+
+        };
+
+        return lift(new OperatorDoOnEach<T>(observer));
+    }
+    
     public final Observable<T> doOnEach(final Action1<Notification<? super T>> onNotification) {
         Observer<T> observer = new Observer<T>() {
             @Override
