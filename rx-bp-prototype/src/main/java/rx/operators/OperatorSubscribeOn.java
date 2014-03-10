@@ -57,7 +57,7 @@ public class OperatorSubscribeOn<T> implements Operator<T, Observable<T>> {
                     @Override
                     public void call(final Inner inner) {
                         System.out.println("******************* subscribe");
-                        o.unsafeSubscribe(new Subscriber<T>() {
+                        o.unsafeSubscribe(new Subscriber<T>(subscriber) {
 
                             @Override
                             public void onCompleted() {
