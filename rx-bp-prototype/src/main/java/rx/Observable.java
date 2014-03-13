@@ -56,6 +56,7 @@ import rx.operators.OperatorSubscribeOn;
 import rx.operators.OperatorTake;
 import rx.operators.OperatorToObservableList;
 import rx.operators.OperatorZip;
+import rx.operators.WhileParked;
 import rx.subscriptions.Subscriptions;
 
 /**
@@ -259,6 +260,23 @@ public class Observable<T> {
     public final static <T> Observable<T> just(T value) {
         return from(Arrays.asList(value));
     }
+    
+    public Observable<T> whileParkedBlock() {
+        return (Observable<T>) lift(WhileParked.BLOCK);
+    }
+    
+    public Observable<T> whileParkedBuffer() {
+        return (Observable<T>) lift(WhileParked.BUFFER);
+    }
+    
+    public Observable<T> whileParkedDrop() {
+        return (Observable<T>) lift(WhileParked.DROP);
+    }
+    
+    public Observable<T> whileParkedUnsubscribe() {
+        return lift(new WhileParked.Unsubscribe<T>(this));
+    }
+
 
     /**
      * Returns an Observable that emits no items to the {@link Observer} and immediately invokes its {@link Observer#onCompleted onCompleted} method.

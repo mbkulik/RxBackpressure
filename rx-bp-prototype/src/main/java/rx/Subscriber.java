@@ -24,7 +24,8 @@ import rx.subscriptions.CompositeSubscription;
 /**
  * Provides a mechanism for receiving push-based notifications.
  * <p>
- * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the {@link Observable} calls the Observer's <code>onNext</code> method to provide notifications. A
+ * After an Observer calls an {@link Observable}'s <code>Observable.subscribe</code> method, the
+ * {@link Observable} calls the Observer's <code>onNext</code> method to provide notifications. A
  * well-behaved {@link Observable} will call an Observer's <code>onCompleted</code> closure exactly
  * once or the Observer's <code>onError</code> closure exactly once.
  * <p>
@@ -110,7 +111,8 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
         } else {
             // middle operator ... we pass thru unless a request has been made
 
-            // if we have a non-0 value we will run as that means this operator has expressed interest
+            // if we have a non-0 value we will run as that means this operator has expressed
+            // interest
             int claimed = claim(producer);
             if (claimed == State.NOT_SET) {
                 // we pass-thru to the next producer as it has not been set
@@ -125,6 +127,7 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
     }
 
     public static final class Request {
+        public static final Request EMPTY = new Request(null, 0);
 
         private final Subscription s;
         private final AtomicInteger request;
@@ -140,24 +143,42 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
         public Request min(int num) {
             System.out.println("min: " + request.get());
-            if (this.request.get() < num) {
+            if (num == State.INFINITE || this.request.get() < num) {
                 return this;
             }
             return new Request(s, num);
         }
 
         public Request add(int num) {
-            return new Request(s, this.request.addAndGet(num));
+            if (this.request.get() == State.INFINITE)
+                return this;
+            if (num == -1)
+                return new Request(s, num);
+            return new Request(s, this.request.get() + num);
+        }
+
+        public Request add(Request num) {
+            if (num == EMPTY)
+                return this;
+            if (this.request.get() == State.INFINITE)
+                return this;
+            if (num.request.get() == State.INFINITE) {
+                return num;
+            }
+            return new Request(s != null ? s : num.s, this.request.get() + num.request.get());
         }
 
         public Request max(int num) {
-            if (this.request.get() > num) {
+            if (this.request.get() == State.INFINITE || this.request.get() > num) {
                 return this;
             }
             return new Request(s, this.request);
         }
 
         public final boolean countDown() {
+            // only null if empty
+            if (s == null)
+                return false;
             if (s.isUnsubscribed()) {
                 return false;
             }
@@ -170,6 +191,8 @@ public abstract class Subscriber<T> implements Observer<T>, Subscription {
 
         @Override
         public String toString() {
+            if (s == null)
+                return "Subscriber.Request => EMPTY";
             return "Subscriber.Request => unsubscribed: " + s.isUnsubscribed() + " numRequested: " + request.get();
         }
     }
